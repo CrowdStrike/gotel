@@ -7,13 +7,13 @@ import (
 	"time"
 )
 
-// GotelEndpoint holds the reference to our DB connection
-type GotelEndpoint struct {
+// Endpoint holds the reference to our DB connection
+type Endpoint struct {
 	Db *sql.DB
 }
 
-// Reservation is when an app first registers that it will be checking into our gotel
-type Reservation struct {
+// reservation is when an app first registers that it will be checking into our gotel
+type reservation struct {
 	JobID       int    `json:"job_id"`
 	Owner       string `json:"owner"`
 	Notify      string `json:"notify"`
@@ -24,28 +24,42 @@ type Reservation struct {
 	LastCheckin int64  `json:"last_checkin"`
 }
 
-// CheckIn holds a struct that is populated when an app checks in as still alive
-type CheckIn struct {
+// checkin holds a struct that is populated when an app checks in as still alive
+type checkin struct {
 	App       string `json:"app"`
 	Component string `json:"component"`
 	Notes     string `json:"notes"`
 }
 
-// CheckOut is for removing reservations
-type CheckOut struct {
+// checkOut is for removing reservations
+type checkOut struct {
 	App       string `json:"app"`
 	Component string `json:"component"`
 }
 
-// Pause holds a struct for when users want to pause an alert
-type Pause struct {
+// pause holds a struct for when users want to pause an alert
+type pause struct {
 	App       string `json:"app"`
 	Component string `json:"component"`
 	Frequency int    `json:"frequency"`
 	TimeUnits string `json:"time_units"`
 }
 
-func storeReservation(db *sql.DB, r *Reservation) (bool, error) {
+// InitDb initialzes and then bootstraps the database
+func InitDb(host, user, pass string, conf config) *sql.DB {
+	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:3306)/gotel", user, pass, host))
+	if err != nil {
+		panic(err)
+	}
+	err = db.Ping()
+	if err != nil {
+		panic(fmt.Sprintf("Unable to ping the DB at host [%s] user [%s]", host, user))
+	}
+	bootstrapDb(db, conf)
+	return db
+}
+
+func storeReservation(db *sql.DB, r *reservation) (bool, error) {
 
 	// get current unix time one day into the future as the initial insert data, give it one day to bake
 	tomorrow := time.Now().Add(24 * time.Hour).UTC().Unix()
@@ -83,7 +97,7 @@ func storeReservation(db *sql.DB, r *Reservation) (bool, error) {
 
 }
 
-func logHouseKeeping(db *sql.DB, c CheckIn, now int64) (bool, error) {
+func logHouseKeeping(db *sql.DB, c checkin, now int64) (bool, error) {
 
 	//Insert
 	stmt, err := db.Prepare("insert into housekeeping(app, component, notes, last_checkin_timestamp) values(?, ?, ?, ?)")
@@ -101,7 +115,7 @@ func logHouseKeeping(db *sql.DB, c CheckIn, now int64) (bool, error) {
 	return true, nil
 }
 
-func storeCheckin(db *sql.DB, c CheckIn, now int64) (bool, error) {
+func storeCheckin(db *sql.DB, c checkin, now int64) (bool, error) {
 
 	stmt, err := db.Prepare("UPDATE reservations SET last_checkin_timestamp = ?, num_checkins = num_checkins + 1 WHERE app=? AND component=?")
 	if err != nil {
@@ -118,7 +132,7 @@ func storeCheckin(db *sql.DB, c CheckIn, now int64) (bool, error) {
 	return true, nil
 }
 
-func storeCheckOut(db *sql.DB, c *CheckOut) (bool, error) {
+func storeCheckOut(db *sql.DB, c *checkOut) (bool, error) {
 
 	stmt, err := db.Prepare("DELETE FROM reservations WHERE app=? AND component=?")
 	if err != nil {
@@ -134,7 +148,7 @@ func storeCheckOut(db *sql.DB, c *CheckOut) (bool, error) {
 	return true, nil
 }
 
-func storePause(db *sql.DB, p *Pause) (bool, error) {
+func storePause(db *sql.DB, p *pause) (bool, error) {
 	futureSeconds := getSecondsFromUnits(p.Frequency, p.TimeUnits)
 
 	pausedTime := time.Now().Add(time.Duration(futureSeconds) * time.Second).UTC().Unix()
@@ -169,19 +183,7 @@ func getSecondsFromUnits(freq int, units string) int {
 	return seconds
 }
 
-func InitDb(host, user, pass string) (*sql.DB, error) {
-	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:3306)/gotel", user, pass, host))
-	if err != nil {
-		panic(err)
-	}
-	err = db.Ping()
-	if err != nil {
-		panic(fmt.Sprintf("Unable to ping the DB at host [%s] user [%s]", host, user))
-	}
-	return db, err
-}
-
-func BootstrapDb(db *sql.DB, conf Config) {
+func bootstrapDb(db *sql.DB, conf config) {
 
 	l.info("Bootstrapping GoTel DB tables")
 

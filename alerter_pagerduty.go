@@ -5,19 +5,19 @@ import (
 	"github.com/stvp/pager"
 )
 
-type PagerDutyAlerter struct {
-	Cfg Config
+type pagerDutyAlerter struct {
+	Cfg config
 }
 
-func (s *PagerDutyAlerter) Bootstrap() {
+func (s *pagerDutyAlerter) Bootstrap() {
 
 }
 
-func (s *PagerDutyAlerter) Name() string {
+func (s *pagerDutyAlerter) Name() string {
 	return "PagerDuty"
 }
 
-func (s *PagerDutyAlerter) Alert(res Reservation) {
+func (s *pagerDutyAlerter) Alert(res reservation) {
 
 	l.info("PagerDuty API key [%s]", s.Cfg.Pagerduty.Servicekey)
 

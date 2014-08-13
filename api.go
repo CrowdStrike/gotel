@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/emicklei/go-restful"
+	"log"
 	"net/http"
 	"time"
 )
@@ -11,16 +12,16 @@ import (
 // Response will hold a response sent back to the caller
 type Response map[string]interface{}
 
-func (ge *GotelEndpoint) Reservation(req *restful.Request, resp *restful.Response) {
-	res := new(Reservation)
+func (ge *Endpoint) makeReservation(req *restful.Request, resp *restful.Response) {
+	res := new(reservation)
 	err := req.ReadEntity(&res)
 	if err != nil {
 		l.err("Unable to accept reservation")
 	}
 
-	err = validateReservation(res)
+	err = validatereservation(res)
 	if err != nil {
-		l.warn("Invalid Reservations [%q]", res)
+		l.warn("Invalid reservations [%q]", res)
 		resp.WriteHeader(http.StatusBadRequest)
 		resp.WriteAsJson(fmt.Sprintf("Unable to store reservation, validation failure [%v]", err))
 		return
@@ -38,7 +39,7 @@ func (ge *GotelEndpoint) Reservation(req *restful.Request, resp *restful.Respons
 	resp.WriteAsJson("OK")
 }
 
-func (ge *GotelEndpoint) ListReservations(req *restful.Request, resp *restful.Response) {
+func (ge *Endpoint) listReservations(req *restful.Request, resp *restful.Response) {
 	query := "select id, app, component, owner, notify, frequency, time_units, last_checkin_timestamp from reservations"
 	rows, err := ge.Db.Query(query)
 	if err != nil {
@@ -47,10 +48,10 @@ func (ge *GotelEndpoint) ListReservations(req *restful.Request, resp *restful.Re
 		resp.WriteAsJson(r)
 		return
 	}
-	reservations := []Reservation{}
+	reservations := []reservation{}
 	defer rows.Close()
 	for rows.Next() {
-		res := Reservation{}
+		res := reservation{}
 		rows.Scan(&res.JobID, &res.App, &res.Component, &res.Owner, &res.Notify, &res.Frequency, &res.TimeUnits, &res.LastCheckin)
 		reservations = append(reservations, res)
 	}
@@ -59,8 +60,8 @@ func (ge *GotelEndpoint) ListReservations(req *restful.Request, resp *restful.Re
 	return
 }
 
-func (ge *GotelEndpoint) Checkin(req *restful.Request, resp *restful.Response) {
-	c := new(CheckIn)
+func (ge *Endpoint) doCheckin(req *restful.Request, resp *restful.Response) {
+	c := new(checkin)
 	err := req.ReadEntity(&c)
 	if err != nil {
 		l.err("Unable to accept checkin for %v", c)
@@ -92,8 +93,8 @@ func (ge *GotelEndpoint) Checkin(req *restful.Request, resp *restful.Response) {
 }
 
 // used when you know your service will be offline for a bit and you want to pause alerts
-func (ge *GotelEndpoint) Pause(req *restful.Request, resp *restful.Response) {
-	p := new(Pause)
+func (ge *Endpoint) doPause(req *restful.Request, resp *restful.Response) {
+	p := new(pause)
 	err := req.ReadEntity(&p)
 	if err != nil {
 		l.err("Unable to accept pause for %v", p)
@@ -116,8 +117,8 @@ func (ge *GotelEndpoint) Pause(req *restful.Request, resp *restful.Response) {
 }
 
 // used when you know your service will be offline for a bit and you want to pause alerts
-func (ge *GotelEndpoint) CheckOut(req *restful.Request, resp *restful.Response) {
-	p := new(CheckOut)
+func (ge *Endpoint) doCheckOut(req *restful.Request, resp *restful.Response) {
+	p := new(checkOut)
 	err := req.ReadEntity(&p)
 	if err != nil {
 		l.err("Unable to accept checkout for %v error [%s]", p, err)
@@ -136,16 +137,37 @@ func (ge *GotelEndpoint) CheckOut(req *restful.Request, resp *restful.Response) 
 	resp.WriteAsJson(r)
 }
 
-// returns true if this node is the Coordinator
-func (ge *GotelEndpoint) IsCoordinator(req *restful.Request, resp *restful.Response) {
-	resp.WriteEntity(Coordinator)
+// IsCoordinator returns true if this node is the coordinator
+func (ge *Endpoint) IsCoordinator(req *restful.Request, resp *restful.Response) {
+	resp.WriteEntity(coordinator)
 }
 
-func validateReservation(res *Reservation) error {
+func validatereservation(res *reservation) error {
 	timeUnits := map[string]int{"seconds": 1, "minutes": 1, "hours": 1}
 	_, ok := timeUnits[res.TimeUnits]
 	if !ok {
 		return errors.New("Invalid time_units passed in")
 	}
 	return nil
+}
+
+// InitAPI initializes the webservice on the specific port
+func InitAPI(ge *Endpoint, port int) {
+	ws := new(restful.WebService)
+	ws.
+		Path("/").
+		// You can specify consumes and produces per route as well.
+		Consumes(restful.MIME_JSON, restful.MIME_XML).
+		Produces(restful.MIME_JSON, restful.MIME_XML)
+
+	ws.Route(ws.POST("/reservation").To(ge.makeReservation).Produces(restful.MIME_JSON))
+	ws.Route(ws.GET("/reservation").To(ge.listReservations).Produces(restful.MIME_JSON))
+	ws.Route(ws.POST("/checkin").To(ge.doCheckin).Produces(restful.MIME_JSON))
+	ws.Route(ws.POST("/checkout").To(ge.doCheckOut).Produces(restful.MIME_JSON))
+	ws.Route(ws.POST("/pause").To(ge.doPause).Produces(restful.MIME_JSON))
+	ws.Route(ws.GET("/is-coordinator").To(ge.IsCoordinator).Produces(restful.MIME_JSON))
+
+	restful.Add(ws)
+	server := http.ListenAndServe(":8080", nil)
+	log.Panic(server)
 }

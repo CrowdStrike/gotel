@@ -6,11 +6,11 @@ import (
 	"log/syslog"
 )
 
-type Logging struct {
+type logging struct {
 	EnableSYSLOG bool
 }
 
-func (logger *Logging) setLogOutput() {
+func (logger *logging) setLogOutput() {
 	loggerName := "GOTEL"
 
 	if logger.EnableSYSLOG {
@@ -24,7 +24,7 @@ func (logger *Logging) setLogOutput() {
 	}
 }
 
-func (*Logging) info(format string, a ...interface{}) {
+func (*logging) info(format string, a ...interface{}) {
 	if len(a) < 1 {
 		log.Printf("[INFO] %s\n", format)
 	} else {
@@ -34,7 +34,7 @@ func (*Logging) info(format string, a ...interface{}) {
 
 }
 
-func (*Logging) warn(format string, a ...interface{}) {
+func (*logging) warn(format string, a ...interface{}) {
 	if len(a) < 1 {
 		log.Printf("[WARN] %s\n", format)
 	} else {
@@ -43,15 +43,11 @@ func (*Logging) warn(format string, a ...interface{}) {
 	}
 }
 
-func (*Logging) err(format string, a ...interface{}) {
+func (*logging) err(format string, a ...interface{}) {
 	if len(a) < 1 {
 		log.Printf("[ERROR] %s\n", format)
 	} else {
 		msg := fmt.Sprintf(format, a...)
 		log.Printf("[ERROR] %s\n", msg)
 	}
-}
-
-func enableSYSLOG(syslogEnabled bool) {
-
 }

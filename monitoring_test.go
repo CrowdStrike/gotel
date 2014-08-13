@@ -9,7 +9,7 @@ func Test_failedSLA(t *testing.T) {
 
 	oldTime := 1403253684 // 6/20/2014
 
-	res := Reservation{
+	res := reservation{
 		App:         "jimtest",
 		Component:   "monitor",
 		Frequency:   5,
@@ -24,7 +24,7 @@ func Test_failedSLA(t *testing.T) {
 func Test_goodSLA(t *testing.T) {
 
 	curTime := time.Now().UTC().Unix()
-	res := Reservation{
+	res := reservation{
 		App:         "jimtest",
 		Component:   "monitor",
 		Frequency:   5,

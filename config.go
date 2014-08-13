@@ -4,7 +4,9 @@ import (
 	"code.google.com/p/gcfg"
 )
 
-type Config struct {
+var l *logging
+
+type config struct {
 	Main struct {
 		GotelOwnerEmail    string
 		HoursBetweenAlerts int64
@@ -21,23 +23,17 @@ type Config struct {
 	}
 }
 
-var (
-	l *Logging
-)
-
-func init() {
-
-}
-
-func Conf(confPath string, sysLogEnabled bool) Config {
-	config := Config{}
-	l = &Logging{EnableSYSLOG: sysLogEnabled}
+// NewConfig returns a gotel config with configPath and sysLogEnabled set.
+// As part of initialization it will also parse the provided config file.
+func NewConfig(confPath string, sysLogEnabled bool) config {
+	conf := config{}
+	l = &logging{EnableSYSLOG: sysLogEnabled}
 	l.setLogOutput()
 
-	err := gcfg.ReadFileInto(&config, confPath)
+	err := gcfg.ReadFileInto(&conf, confPath)
 	if err != nil {
 		l.err("Conf error %q", err)
 		panic("Unable to initialize configuration file properly")
 	}
-	return config
+	return conf
 }

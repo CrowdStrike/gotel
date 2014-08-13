@@ -4,34 +4,32 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"github.com/ParsePlatform/go.flagenv"
 	"net/smtp"
 	"time"
 )
 
-var smtpHost *string
+var smtpHost string
 
-func (s *SmtpAlerter) Bootstrap() {
-	smtpHost = flag.String("GOTEL_SMTP_HOST", "", "Host of the SMTP server for sending mail")
-	flag.Parse()
-	if err := flagenv.ParseEnv(); err != nil {
-		panic(err)
-	}
-	if *smtpHost == "" {
+func init() {
+	flag.StringVar(&smtpHost, "GOTEL_SMTP_HOST", "", "Host of the SMTP server for sending mail")
+}
+
+func (s *smtpAlerter) Bootstrap() {
+	if smtpHost == "" {
 		panic("You have SMTP alerting enalbed but have not provided the GOTEL_SMTP_HOST env/flag")
 	}
-	l.info("alerter_smtp SMTP_HOST [%s]", *smtpHost)
+	l.info("alerter_smtp SMTP_HOST [%s]", smtpHost)
 }
 
-type SmtpAlerter struct {
-	Cfg Config
+type smtpAlerter struct {
+	Cfg config
 }
 
-func (s *SmtpAlerter) Name() string {
+func (s *smtpAlerter) Name() string {
 	return "SMTP"
 }
 
-func (s *SmtpAlerter) Alert(res Reservation) {
+func (s *smtpAlerter) Alert(res reservation) {
 
 	ip, err := externalIP()
 	if err != nil {
@@ -41,9 +39,9 @@ func (s *SmtpAlerter) Alert(res Reservation) {
 	l.info("SMTP alert on app [%s] component [%s] on ip [%s]\n", res.App, res.Component, ip)
 
 	// Connect to the remote SMTP server.
-	c, err := smtp.Dial(*smtpHost + ":25")
+	c, err := smtp.Dial(smtpHost + ":25")
 	if err != nil {
-		l.warn("[WARN] Unable to dial mail server: [%s] err: [%v]", *smtpHost, err)
+		l.warn("[WARN] Unable to dial mail server: [%s] err: [%v]", smtpHost, err)
 		return
 	}
 	// Set the sender in header.
@@ -54,7 +52,7 @@ func (s *SmtpAlerter) Alert(res Reservation) {
 	// Connecting to mail server ?.
 	wc, err := c.Data()
 	if err != nil {
-		l.warn("[WARN] Unable to connect to mail server: [%s] err: [%v]", *smtpHost, err)
+		l.warn("[WARN] Unable to connect to mail server: [%s] err: [%v]", smtpHost, err)
 		return
 	}
 	defer wc.Close()
@@ -65,7 +63,7 @@ func (s *SmtpAlerter) Alert(res Reservation) {
 	// Now push out the complete mail message
 
 	if _, err = message.WriteTo(wc); err != nil {
-		l.warn("[WARN] Unable to write to mail server: [%s] err: [%v]\n", *smtpHost, err)
+		l.warn("[WARN] Unable to write to mail server: [%s] err: [%v]\n", smtpHost, err)
 		return
 	}
 	l.info("Email sent for app [%s] component [%s]\n", res.App, res.Component)

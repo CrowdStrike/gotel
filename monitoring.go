@@ -11,43 +11,43 @@ import (
 	"time"
 )
 
-type Alerter interface {
-	Alert(res Reservation)
+type alerter interface {
+	Alert(res reservation)
 	Name() string
 	Bootstrap()
 }
 
-// holds info so we don't spam alerters every n seconds
-var sentAlerts = make(map[string]time.Time)
+var (
+	// holds info so we don't spam alerters every n seconds
+	sentAlerts = make(map[string]time.Time)
+	// this designates the instance as the coordinating instanceS
+	coordinator = false
+	// stores a slice of alerter functions to call when we have an alert
+	alertFuncs = []alerter{}
+	cfg        config
+)
 
-// am I the leader?
-var Coordinator bool = false
-
-// stores a slice of alerter functions to call when we have an alert
-var alertFuncs = []Alerter{}
-
-var cfg Config
-
+// Monitor checks existing reservations for late arrivals
 func Monitor(db *sql.DB) {
-	if !Coordinator {
-		Coordinator = isCoordinator(db)
+	if !coordinator {
+		coordinator = isCoordinator(db)
 	}
 	printCoordinatorStatus()
 	jobChecker(db)
 }
 
-func InitializeMonitoring(c Config) {
+// InitializeMonitoring sets up alerters based on configuration
+func InitializeMonitoring(c config) {
 	cfg = c
 	if cfg.Smtp.Enabled {
-		smtp := new(SmtpAlerter)
+		smtp := new(smtpAlerter)
 		smtp.Cfg = c
 		alertFuncs = append(alertFuncs, smtp)
 	} else {
 		l.info("SMTP Alerting disabled")
-
 	}
 	if cfg.Pagerduty.Enabled {
-		pd := new(PagerDutyAlerter)
+		pd := new(pagerDutyAlerter)
 		pd.Cfg = c
 		alertFuncs = append(alertFuncs, pd)
 	} else {
@@ -76,9 +76,9 @@ func hasLock(db *sql.DB) bool {
 			// holds a lock while the connection is alive
 			l.info("Lock Aquired")
 			return true
-		} else {
-			l.info("Unable to aquire coordinator lock. I must be a worker [%v]", lck)
 		}
+		l.info("Unable to aquire coordinator lock. I must be a worker [%v]", lck)
+
 	}
 	return false
 }
@@ -98,7 +98,7 @@ func releaseLock(db *sql.DB) (bool, error) {
 // attempt to aquire coordinator lock to indicate this node should do the job checking
 // in the future I'd like to have a zookeeper integration for a more "true" leader election scheme
 // this is somewhat of a quickstart method so people don't have to also have ZK in their env
-// split brain would be detected by the Coordinator not checking in so we'd be firing off an alert
+// split brain would be detected by the coordinator not checking in so we'd be firing off an alert
 func isCoordinator(db *sql.DB) bool {
 
 	coordinatorNodeCnt := 0
@@ -106,10 +106,10 @@ func isCoordinator(db *sql.DB) bool {
 	lockAquired := hasLock(db)
 	if lockAquired {
 		var (
-			ip_address string
-			node_id    int64
+			ipAddress string
+			nodeID    int64
 		)
-		rows, err := db.Query("select ip_address, node_id from nodes")
+		rows, err := db.Query("select ipAddress, nodeID from nodes")
 		if err != nil {
 			l.err("Unable to select nodes [%v]", err)
 			return false
@@ -117,23 +117,23 @@ func isCoordinator(db *sql.DB) bool {
 		defer rows.Close()
 
 		for rows.Next() {
-			err := rows.Scan(&ip_address, &node_id)
+			err := rows.Scan(&ipAddress, &nodeID)
 			if err != nil {
 				l.err("Unable to scan node rows [%v]", err)
 				return false
 			}
 
-			// check to see if we have any other Coordinator nodes, or am i it?
-			l.info("Checking ip [%s] for Coordinator status", ip_address)
-			resp, err := http.Get(fmt.Sprintf("http://%s:8080/is-coordinator", ip_address))
+			// check to see if we have any other coordinator nodes, or am i it?
+			l.info("Checking ip [%s] for coordinator status", ipAddress)
+			resp, err := http.Get(fmt.Sprintf("http://%s:8080/is-coordinator", ipAddress))
 			if err != nil {
-				l.warn("Unable to contact node [%s] assuming offline", ip_address)
+				l.warn("Unable to contact node [%s] assuming offline", ipAddress)
 				continue
 			}
 			defer resp.Body.Close()
 
 			if resp.StatusCode != 200 {
-				l.warn("Didn't get a 200OK reply back from ip [%s]", ip_address)
+				l.warn("Didn't get a 200OK reply back from ip [%s]", ipAddress)
 			}
 
 			body, err := ioutil.ReadAll(resp.Body)
@@ -141,16 +141,16 @@ func isCoordinator(db *sql.DB) bool {
 				l.warn("Unable to read node response")
 			}
 			if string(body) == "true" {
-				l.info("IP [%s] is reporting as a Coordinator", ip_address)
-				coordinatorNodeCnt += 1
+				l.info("IP [%s] is reporting as a coordinator", ipAddress)
+				coordinatorNodeCnt++
 			}
-			l.info("ip [%s] http Coordinator check returned [%s]", ip_address, body)
+			l.info("ip [%s] http coordinator check returned [%s]", ipAddress, body)
 
 		}
 		insertSelf(db)
 		releaseLock(db)
 		if coordinatorNodeCnt == 0 {
-			// I'm the Coordinator!
+			// I'm the coordinator!
 			return true
 		}
 	}
@@ -165,7 +165,7 @@ func insertSelf(db *sql.DB) {
 	rand.Seed(time.Now().UnixNano())
 	seedID := rand.Intn(10000)
 
-	stmt, err := db.Prepare("insert into nodes(ip_address, node_id) values(?, ?)")
+	stmt, err := db.Prepare("insert into nodes(ipAddress, nodeID) values(?, ?)")
 	if err != nil {
 		l.err("Unable to prepare insertself record %s", err)
 		return
@@ -183,7 +183,7 @@ func insertSelf(db *sql.DB) {
 }
 
 func printCoordinatorStatus() {
-	if Coordinator {
+	if coordinator {
 		l.info("I am the coordinator node!\n")
 	} else {
 		l.info("I am the worker node!\n")
@@ -196,7 +196,7 @@ func printCoordinatorStatus() {
 func jobChecker(db *sql.DB) {
 
 	var query string
-	if Coordinator {
+	if coordinator {
 		query = "select id, app, component, owner, notify, frequency, time_units, last_checkin_timestamp from reservations"
 	} else {
 		// if we're a worker we just want to monitor the co-ordinator
@@ -208,7 +208,7 @@ func jobChecker(db *sql.DB) {
 	}
 	defer rows.Close()
 	for rows.Next() {
-		res := Reservation{}
+		res := reservation{}
 		rows.Scan(&res.JobID, &res.App, &res.Component, &res.Owner, &res.Notify, &res.Frequency, &res.TimeUnits, &res.LastCheckin)
 
 		if FailsSLA(res) && !alreadySentRecently(res) {
@@ -224,35 +224,34 @@ func jobChecker(db *sql.DB) {
 }
 
 // check to see if we've already sent this alert recently
-func alreadySentRecently(res Reservation) bool {
+func alreadySentRecently(res reservation) bool {
 	timeNow := time.Now().UTC()
 	mapKey := res.App + res.Component
-	var waitForNotifyTime time.Duration = time.Duration(cfg.Main.HoursBetweenAlerts) * time.Hour
+	waitForNotifyTime := time.Duration(cfg.Main.HoursBetweenAlerts) * time.Hour
 
 	_, ok := sentAlerts[mapKey]
 	if !ok {
 		sentAlerts[mapKey] = timeNow
 		l.info("Sending new alert for [%s/%s]", res.App, res.Component)
 		return false
-	} else {
-		// check to see if the time elapsed goes over our threshold
-
-		var duration time.Duration = timeNow.Sub(sentAlerts[mapKey])
-		if duration >= waitForNotifyTime {
-			sentAlerts[mapKey] = timeNow
-			l.info("Sent alert already but duration ran out [%s/%s]", res.App, res.Component)
-			return false
-		}
-
 	}
+	// check to see if the time elapsed goes over our threshold
+
+	duration := timeNow.Sub(sentAlerts[mapKey])
+	if duration >= waitForNotifyTime {
+		sentAlerts[mapKey] = timeNow
+		l.info("Sent alert already but duration ran out [%s/%s]", res.App, res.Component)
+		return false
+	}
+
 	l.info("Already sent alert for [%s/%s]", res.App, res.Component)
 	return true
 
 }
 
-// this section will monitor the reservations and determine if any jobs haven't checked in within
-//they're allotted timeframe
-func FailsSLA(res Reservation) bool {
+// FailsSLA monitors the reservations and determines if any jobs haven't checked in within
+// their allotted timeframe
+func FailsSLA(res reservation) bool {
 	l.info("Working on app [%s] component [%s]", res.App, res.Component)
 
 	timeNow := time.Now().UTC()
@@ -266,7 +265,7 @@ func FailsSLA(res Reservation) bool {
 	return false
 }
 
-func storeAlert(res Reservation, db *sql.DB, alerters []string) {
+func storeAlert(res reservation, db *sql.DB, alerters []string) {
 	now := time.Now().UTC().Unix()
 	altertNames := strings.Join(alerters, ",")
 	stmt, err := db.Prepare("insert into alerts(app, component, alert_time, alerters) values(?, ?, ?, ?)")
@@ -284,12 +283,12 @@ func storeAlert(res Reservation, db *sql.DB, alerters []string) {
 
 func storeJobRun(db *sql.DB) {
 	mode := "worker"
-	if Coordinator {
+	if coordinator {
 		mode = "coordinator"
 	}
 	now := time.Now().UTC().Unix()
 	l.info("Storing job run, mode: [%s]\n", mode)
-	storeCheckin(db, CheckIn{
+	storeCheckin(db, checkin{
 		App:       "gotel",
 		Component: mode,
 	}, now)
