@@ -35,6 +35,8 @@ Requirements
 
 Getting Started
 ----
+in MySQL create a "gotel" database
+
 cd into cmd/gotelweb
 
 ./run.sh
