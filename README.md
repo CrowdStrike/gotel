@@ -39,13 +39,18 @@ in MySQL create a "gotel" database
 
 
 Grab the code:
+
 mkdir -p gotel_github/src
+
 cd gotel_github
+
 export GOPATH=gotel_github
+
 go get github.com/CrowdStrike/gotel
+
 go get github.com/go-sql-driver/mysql
 
-cd into cmd/gotelweb
+cd into github.com/CrowdStrike/gotel/cmd/gotelweb
 
 ./run.sh
 
@@ -77,10 +82,16 @@ GoTel allows for configurable alerters to be set so when an application doesn't 
 
 Currently configured alerts:
 
-SMTP
+####SMTP
  - sends emails to the "notify" parameter of a reservation
+
+To Enable:
+edit gotel.gcfg and set enable=true under [smtp]
+
+pass in the flag -GOTEL_SMTP_HOST=10.10.1.1 (or whatever your smtp server address is)
+
  
-PagerDuty
+####PagerDuty
  - creates a pager duty incident that will alert via SMS when an app/component fails to checkin
 
 API
