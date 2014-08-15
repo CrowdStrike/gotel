@@ -1,9 +1,9 @@
 package gotel
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
-	"encoding/json"
 	"log"
 	"net/http"
 	"time"
@@ -11,6 +11,8 @@ import (
 
 // Response will hold a response sent back to the caller
 type Response map[string]interface{}
+
+var validTimeUnits = map[string]int{"seconds": 1, "minutes": 1, "hours": 1}
 
 func writeError(w http.ResponseWriter, e interface{}) {
 	w.WriteHeader(http.StatusBadRequest)
@@ -33,7 +35,6 @@ func writeResponse(w http.ResponseWriter, e interface{}) {
 		return
 	}
 }
-	
 
 func (ge *Endpoint) makeReservation(w http.ResponseWriter, req *http.Request) {
 	res := new(reservation)
@@ -116,28 +117,46 @@ func (ge *Endpoint) doCheckin(w http.ResponseWriter, req *http.Request) {
 }
 
 // used when you know your service will be offline for a bit and you want to pause alerts
-func (ge *Endpoint) doPause(w http.ResponseWriter, req *http.Request) {
-	p := new(pause)
+func (ge *Endpoint) doSnooze(w http.ResponseWriter, req *http.Request) {
+	p := new(snooze)
 	decoder := json.NewDecoder(req.Body)
 	err := decoder.Decode(&p)
 	if err != nil {
-		l.err("Unable to accept pause for %v", p)
-		r := Response{"success": false, "message": "Unable to checkin: " + p.App}
+		l.err("Unable to accept snooze for %v", p)
+		r := Response{"success": false, "message": "Unable to snooze: " + p.App}
 		writeResponse(w, r)
 		return
 	}
 
-	_, err = storePause(ge.Db, p)
+	err = validateSnooze(p)
 	if err != nil {
-		l.err("Unable to save pause for %v", p)
-		r := Response{"success": false, "message": "Unable to save checkin: " + p.App}
+		l.warn("Invalid reservations [%q]", p)
+		writeError(w, fmt.Sprintf("Unable to store snooze, validation failure [%v]", err))
+		return
+	}
+
+	_, err = storeSnooze(ge.Db, p)
+	if err != nil {
+		l.err("Unable to save snooze for %v", p)
+		r := Response{"success": false, "message": "Unable to save snooze: " + p.App}
 		writeResponse(w, r)
 		return
 	}
 
-	r := Response{"success": true, "message": "Application paused: " + p.App}
+	r := Response{"success": true, "message": "Application alerting paused: " + p.App}
 	writeResponse(w, r)
 
+}
+
+func validateSnooze(snooze *snooze) error {
+	_, ok := validTimeUnits[snooze.TimeUnits]
+	if !ok {
+		return errors.New("Invalid time_units passed in")
+	}
+	if snooze.Duration == 0 {
+		return errors.New("")
+	}
+	return nil
 }
 
 // used when you know your service will be offline for a bit and you want to pause alerts
@@ -159,7 +178,7 @@ func (ge *Endpoint) doCheckOut(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	r := Response{"success": true, "message": fmt.Sprintf("Application Removed [%s/%s] ", p.App, p.Component)}
-  writeResponse(w, r)
+	writeResponse(w, r)
 }
 
 func (ge *Endpoint) isCoordinator(w http.ResponseWriter, req *http.Request) {
@@ -181,7 +200,7 @@ func InitAPI(ge *Endpoint, port int) {
 		if r.Method == "GET" {
 			ge.listReservations(w, r)
 			return
-		} else if (r.Method == "POST") {
+		} else if r.Method == "POST" {
 			ge.makeReservation(w, r)
 			return
 		}
@@ -192,23 +211,23 @@ func InitAPI(ge *Endpoint, port int) {
 		if r.Method == "POST" {
 			ge.doCheckin(w, r)
 			return
-		} 
+		}
 		writeError(w, fmt.Sprintf("Invalid method %s", r.Method))
 		return
 	})
 	http.HandleFunc("/checkout", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
-			ge.doCheckin(w, r)
+			ge.doCheckOut(w, r)
 			return
-		} 
+		}
 		writeError(w, fmt.Sprintf("Invalid method %s", r.Method))
 		return
 	})
-	http.HandleFunc("/pause", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/snooze", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" {
-			ge.doPause(w, r)
+			ge.doSnooze(w, r)
 			return
-		} 
+		}
 		writeError(w, fmt.Sprintf("Invalid method %s", r.Method))
 		return
 	})
@@ -216,7 +235,7 @@ func InitAPI(ge *Endpoint, port int) {
 		if r.Method == "GET" {
 			ge.isCoordinator(w, r)
 			return
-		} 
+		}
 		writeError(w, fmt.Sprintf("Invalid method %s", r.Method))
 		return
 	})

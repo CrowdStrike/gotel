@@ -37,11 +37,11 @@ type checkOut struct {
 	Component string `json:"component"`
 }
 
-// pause holds a struct for when users want to pause an alert
-type pause struct {
+// snooze holds a struct for when users want to pause an alert for maintenance
+type snooze struct {
 	App       string `json:"app"`
 	Component string `json:"component"`
-	Frequency int    `json:"frequency"`
+	Duration  int    `json:"duration"`
 	TimeUnits string `json:"time_units"`
 }
 
@@ -148,22 +148,22 @@ func storeCheckOut(db *sql.DB, c *checkOut) (bool, error) {
 	return true, nil
 }
 
-func storePause(db *sql.DB, p *pause) (bool, error) {
-	futureSeconds := getSecondsFromUnits(p.Frequency, p.TimeUnits)
+func storeSnooze(db *sql.DB, p *snooze) (bool, error) {
+	futureSeconds := getSecondsFromUnits(p.Duration, p.TimeUnits)
 
 	pausedTime := time.Now().Add(time.Duration(futureSeconds) * time.Second).UTC().Unix()
 
 	stmt, err := db.Prepare("UPDATE reservations SET last_checkin_timestamp = ? WHERE app=? AND component=?")
 	if err != nil {
 		l.warn("Unable to prepare record %s", err)
-		return false, errors.New("Unable to prepare checkin")
+		return false, errors.New("Unable to prepare snooze")
 	}
 	defer stmt.Close()
 
 	_, err = stmt.Exec(pausedTime, p.App, p.Component)
 	if err != nil {
-		l.warn("Unable to update reservation %s", err)
-		return false, errors.New("Unable to store checkin")
+		l.warn("Unable to update snooze %s", err)
+		return false, errors.New("Unable to store snooze")
 	}
 
 	return true, nil

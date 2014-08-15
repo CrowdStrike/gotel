@@ -37,6 +37,14 @@ Getting Started
 ----
 in MySQL create a "gotel" database
 
+
+Grab the code:
+mkdir -p gotel_github/src
+cd gotel_github
+export GOPATH=gotel_github
+go get github.com/CrowdStrike/gotel
+go get github.com/go-sql-driver/mysql
+
 cd into cmd/gotelweb
 
 ./run.sh
@@ -101,12 +109,12 @@ curl -XPOST 'http://127.0.0.1:8080/checkin' -i -H "Content-type: application/jso
 }
 '
 
-// pause a job if you're going down for maintenance or testing
-curl -XPOST 'http://127.0.0.1:8080/pause' -i -H "Content-type: application/json" -d '
+// pause (snooze your wakeup call) a job if you're going down for maintenance or testing
+curl -XPOST 'http://127.0.0.1:8080/snooze' -i -H "Content-type: application/json" -d '
 {
   "app": "testapp",
   "component": "requests",
-  "frequency": 10,
+  "duration": 10,
   "time_units": "hours"
 }
 '

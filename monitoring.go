@@ -25,7 +25,18 @@ var (
 	// stores a slice of alerter functions to call when we have an alert
 	alertFuncs = []alerter{}
 	cfg        config
+	// our current IP address
+	myIP string
 )
+
+func init() {
+	var err error
+	myIP, err = externalIP()
+	if err != nil {
+		myIP = "N/A"
+		l.err("Unable to aquire own IP Address")
+	}
+}
 
 // Monitor checks existing reservations for late arrivals
 func Monitor(db *sql.DB) {
@@ -109,7 +120,7 @@ func isCoordinator(db *sql.DB) bool {
 			ipAddress string
 			nodeID    int64
 		)
-		rows, err := db.Query("select ipAddress, nodeID from nodes")
+		rows, err := db.Query("select ip_address, node_id from nodes")
 		if err != nil {
 			l.err("Unable to select nodes [%v]", err)
 			return false
@@ -122,12 +133,15 @@ func isCoordinator(db *sql.DB) bool {
 				l.err("Unable to scan node rows [%v]", err)
 				return false
 			}
-
+			if ipAddress == myIP {
+				continue
+			}
 			// check to see if we have any other coordinator nodes, or am i it?
 			l.info("Checking ip [%s] for coordinator status", ipAddress)
 			resp, err := http.Get(fmt.Sprintf("http://%s:8080/is-coordinator", ipAddress))
 			if err != nil {
 				l.warn("Unable to contact node [%s] assuming offline", ipAddress)
+				removeNode(db, ipAddress)
 				continue
 			}
 			defer resp.Body.Close()
@@ -157,6 +171,26 @@ func isCoordinator(db *sql.DB) bool {
 	return false
 }
 
+func removeNode(db *sql.DB, ipAddress string) {
+	external, err := externalIP()
+	if external == ipAddress {
+		return
+	}
+	if err != nil {
+		l.warn("Unable to delete offline node [%v]", err)
+	}
+	stmt, err := db.Prepare("DELETE FROM nodes WHERE ip_address=?")
+	if err != nil {
+		l.warn("Unable to prepare record %s", err)
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(ipAddress)
+	if err != nil {
+		l.warn("Unable to run delete operation for remove node [%v]", err)
+	}
+	l.info("Node [%s] was removed from DB", ipAddress)
+}
+
 func insertSelf(db *sql.DB) {
 	ip, err := externalIP()
 	if err != nil {
@@ -165,7 +199,7 @@ func insertSelf(db *sql.DB) {
 	rand.Seed(time.Now().UnixNano())
 	seedID := rand.Intn(10000)
 
-	stmt, err := db.Prepare("insert into nodes(ipAddress, nodeID) values(?, ?)")
+	stmt, err := db.Prepare("insert into nodes(ip_address, node_id) values(?, ?)")
 	if err != nil {
 		l.err("Unable to prepare insertself record %s", err)
 		return

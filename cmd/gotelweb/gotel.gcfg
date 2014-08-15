@@ -4,11 +4,10 @@ hoursbetweenalerts=6
 
 ; configure alerters, set to false to disable an alerter if you don't have it setup
 [smtp]
-enabled = true
-smtphost=10.10.10.10
+enabled = false	
 fromaddress=bob@example.com
 replyto=jim@example.com
 
 [pagerduty]
-enabled = true
+enabled = false
 servicekey=888888888888888888
