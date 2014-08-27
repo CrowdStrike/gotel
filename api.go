@@ -196,6 +196,12 @@ func validateReservation(res *reservation) error {
 
 // InitAPI initializes the webservice on the specific port
 func InitAPI(ge *Endpoint, port int) {
+	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			r := Response{"success": true, "message": "A-OK!"}
+			writeResponse(w, r)
+		}
+	})
 	http.HandleFunc("/reservation", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
 			ge.listReservations(w, r)
