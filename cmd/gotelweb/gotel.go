@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 	"github.com/CrowdStrike/gotel"
-	//"github.com/ParsePlatform/go.flagenv"
+	"github.com/ParsePlatform/go.flagenv"
 
 	_ "github.com/go-sql-driver/mysql"
 	"log"
@@ -19,9 +19,9 @@ func main() {
 	confPath := flag.String("GOTEL_CONFIG_PATH", "./gotel.gcfg", "config file path")
 	sysLogEnabled := flag.Bool("GOTEL_SYSLOG", false, "Use syslog for output logging")
 
-	// if err := flagenv.ParseEnv(); err != nil {
-	// 	panic(err)
-	// }
+	if err := flagenv.ParseEnv(); err != nil {
+		panic(err)
+	}
 	flag.Parse()
 
 	config := gotel.NewConfig(*confPath, *sysLogEnabled)
