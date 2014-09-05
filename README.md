@@ -163,4 +163,4 @@ Future ToDos
 
 [CrowdStrike]:http://crowdstrike.com/
 [Jim Plush]:http://jimplush.com
-[Sean Berry]:http://seanberry.com
+[Sean Berry]:http://github.com/schleppy
