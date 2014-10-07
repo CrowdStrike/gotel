@@ -15,12 +15,12 @@ Authors/Contributors
 
 Overview
 ----
-GoTel is for monitoring scheduled operations. It's expected that you have two GoTel instances up for redundancy. The coordinator will monitor the worker and the worker will monitor the coordinator to ensure GoTel is always operational and if not that alerts are sent out to avoid silent failures.
+GoTel is for monitoring scheduled operations. It's expected that you have two GoTel instances up for redundancy (across datacenters). The coordinator will monitor the worker and the worker will monitor the coordinator to ensure GoTel is always operational and if not that alerts are sent out to avoid silent failures.
 
 For example we have monitoring jobs, schedule reports, cron jobs, etc..., various things that are expected to run perfectly and sometimes silently fail. GoTel will let them make a "reservation"
 which means they have to check in during their allotted timeframe or alerts will be sent out to the world. When they run they can "checkin" to gotel which updates their last checkin time. 
 
-This was born from years of experience with various "cron" type jobs that suddently stop working because the job they ran suddenly had a port blocked on it from a firewall config, something in the environment changed or a myriad of various other failure conditions occurred. GoTel is for when things need to run and you need an independent monitor in your network that is not locked in to a specific vendor. We've also seen alerting failures from 3rd party vendors that are supposed to give us the warm fuzzy feeling they'll alert us when things stop working.
+This was born from years of experience with various "cron" type jobs that suddenly stop working because the job they ran had a port blocked on it from a firewall config, something in the environment changed or a myriad of various other failure conditions occurred. GoTel is for when things need to run and you need an independent monitor in your network that is not locked in to a specific vendor. We've also seen alerting failures from 3rd party vendors that are supposed to give us the warm fuzzy feeling they'll alert us when things stop working.
 
 It's also for when you don't want the overhead of an "enterprise" grade schedule monitor. It's for the microservice world where you have apps running in various languages, platforms and locations.
 
