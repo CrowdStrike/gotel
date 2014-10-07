@@ -73,7 +73,7 @@ GoTel uses a number of hotel related concepts. It's imagined that a small hotel 
 * [Reservation] - When your app starts up or is created you create a placeholder and tell GoTel how often it will checkin
 * [Checkin] - Your app completed it's work properly and is telling GoTel everything is A-OK
 * [Checkout] - If you want to power down an app you can checkout and GoTel will stop alerting on it
-* [Pause] - If your app is down for maintenance you can "pause" the job checker to avoid alerts getting fired
+* [Snooze] - If your app is down for maintenance you can "snooze" the job checker to avoid alerts getting fired
 * [Alerters] - GoTel allows plugins to be created that can output to various notification systems. SMTP, PagerDuty, etc..
 
 Alerters
