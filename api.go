@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"log"
 	"net/http"
 	"time"
@@ -62,21 +63,35 @@ func (ge *Endpoint) makeReservation(w http.ResponseWriter, req *http.Request) {
 	writeResponse(w, "OK")
 }
 
-func (ge *Endpoint) listReservations(w http.ResponseWriter, req *http.Request) {
-	query := "SELECT id, app, component, owner, notify, frequency, time_units, last_checkin_timestamp FROM reservations"
+func (ge *Endpoint) getReservations() ([]reservation, error) {
+	query := "SELECT id, app, component, owner, notify, frequency, time_units, last_checkin_timestamp, num_checkins FROM reservations ORDER BY last_checkin_timestamp DESC"
 	rows, err := ge.Db.Query(query)
 	if err != nil {
-		l.err("Unable to list reservations [%v]", err)
-		r := Response{"success": false, "message": "Unable to list reservations"}
-		writeResponse(w, r)
-		return
+		return nil, err
 	}
 	reservations := []reservation{}
 	defer rows.Close()
 	for rows.Next() {
 		res := reservation{}
-		rows.Scan(&res.JobID, &res.App, &res.Component, &res.Owner, &res.Notify, &res.Frequency, &res.TimeUnits, &res.LastCheckin)
+		rows.Scan(&res.JobID, &res.App, &res.Component, &res.Owner, &res.Notify, &res.Frequency, &res.TimeUnits, &res.LastCheckin, &res.NumCheckins)
+		res.LastCheckinStr = time.Unix(res.LastCheckin, 0).Format(time.RFC1123)
+		if FailsSLA(res) {
+			res.FailingSLA = true
+		} else {
+			res.FailingSLA = false
+		}
 		reservations = append(reservations, res)
+	}
+	return reservations, nil
+}
+
+func (ge *Endpoint) listReservations(w http.ResponseWriter, req *http.Request) {
+	reservations, err := ge.getReservations()
+	if err != nil {
+		l.err("Unable to list reservations [%v]", err)
+		r := Response{"success": false, "message": "Unable to list reservations"}
+		writeResponse(w, r)
+		return
 	}
 	result := Response{"success": true, "result": reservations}
 	writeResponse(w, result)
@@ -202,6 +217,24 @@ func InitAPI(ge *Endpoint, port int) {
 			writeResponse(w, r)
 		}
 	})
+
+	http.HandleFunc("/status", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			reservations, err := ge.getReservations()
+
+			if err != nil {
+				l.err(err.Error())
+				r := Response{"success": false, "message": "Unable to server views"}
+				writeResponse(w, r)
+			} else {
+				t, _ := template.ParseFiles("../../public/view.html")
+				t.Execute(w, &reservations)
+
+			}
+
+		}
+	})
+
 	http.HandleFunc("/reservation", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
 			ge.listReservations(w, r)

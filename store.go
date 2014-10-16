@@ -14,14 +14,17 @@ type Endpoint struct {
 
 // reservation is when an app first registers that it will be checking into our gotel
 type reservation struct {
-	JobID       int    `json:"job_id"`
-	Owner       string `json:"owner"`
-	Notify      string `json:"notify"`
-	App         string `json:"app"`
-	Component   string `json:"component"`
-	Frequency   int    `json:"frequency"`
-	TimeUnits   string `json:"time_units"`
-	LastCheckin int64  `json:"last_checkin"`
+	JobID          int    `json:"job_id"`
+	Owner          string `json:"owner"`
+	Notify         string `json:"notify"`
+	App            string `json:"app"`
+	Component      string `json:"component"`
+	Frequency      int    `json:"frequency"`
+	TimeUnits      string `json:"time_units"`
+	LastCheckin    int64  `json:"last_checkin"`
+	LastCheckinStr string `json:"last_checkin_str"` // human readable time
+	FailingSLA     bool   `json:"failing_sla"`
+	NumCheckins    int    `json:"number_of_checkins"`
 }
 
 // checkin holds a struct that is populated when an app checks in as still alive
