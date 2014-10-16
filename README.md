@@ -142,6 +142,9 @@ curl -XPOST 'http://127.0.0.1:8080/checkout' -i -H "Content-type: application/js
 
 // view all reservations
 curl 'http://127.0.0.1:8080/reservation'
+
+// view the status in your browser
+http://127.0.0.1:8080/status
 ```
 
 ##### Configure Config File. Instructions in following file
