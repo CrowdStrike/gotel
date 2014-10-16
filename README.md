@@ -2,6 +2,9 @@ GoTel
 =========
 Who monitors the monitors?
 
+![Build Status](https://travis-ci.org/CrowdStrike/gotel.svg?branch=master)
+
+
 CrowdStrike Cloud Engineering is releasing GoTel which is an internal monitoring service that aims to ensure scheduled jobs, cronjobs, batch oriented work, or general scheduled tasks are completing successfully and within a set SLA time period.
 
   - Provides coordinator/worker pattern to ensure one gotel is always operational
