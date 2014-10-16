@@ -39,24 +39,28 @@ Getting Started
 ----
 in MySQL create a "gotel" database
 
+> mysql> create database gotel;
+
 
 Grab the code:
 
-mkdir -p gotel_github/src
+ > mkdir -p gotel_github/src
+ 
+ > export GOPATH=~/gotel_github
 
-cd gotel_github
+ > cd gotel_github
 
-export GOPATH=gotel_github
+ > go get github.com/CrowdStrike/gotel
 
-go get github.com/CrowdStrike/gotel
+ > go get github.com/go-sql-driver/mysql
+ 
+ > go get github.com/ParsePlatform/go.flagenv
 
-go get github.com/go-sql-driver/mysql
+ > cd $GOPATH/src/github.com/CrowdStrike/gotel/cmd/gotelweb
 
-cd into github.com/CrowdStrike/gotel/cmd/gotelweb
+ > ./run.sh
 
-./run.sh
-
-navigate to: http://127.0.0.1:8080/reservation
+navigate to: http://127.0.0.1:8080/status
 
 
 
