@@ -18,6 +18,7 @@ func main() {
 	dbPass := flag.String("GOTEL_DB_PASSWORD", "", "DB Pass")
 	confPath := flag.String("GOTEL_CONFIG_PATH", "./gotel.gcfg", "config file path")
 	sysLogEnabled := flag.Bool("GOTEL_SYSLOG", false, "Use syslog for output logging")
+	htmlPath := flag.String("GOTEL_HTML_PATH", "../../", "Path to the public folder for storing HTML files")
 	flag.Parse()
 	flagenv.Parse()
 
@@ -37,5 +38,5 @@ func main() {
 			gotel.Monitor(ge.Db)
 		}
 	}()
-	gotel.InitAPI(ge, 8080)
+	gotel.InitAPI(ge, 8080, *htmlPath)
 }

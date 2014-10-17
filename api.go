@@ -210,7 +210,7 @@ func validateReservation(res *reservation) error {
 }
 
 // InitAPI initializes the webservice on the specific port
-func InitAPI(ge *Endpoint, port int) {
+func InitAPI(ge *Endpoint, port int, htmlPath string) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
 			r := Response{"success": true, "message": "A-OK!"}
@@ -227,8 +227,12 @@ func InitAPI(ge *Endpoint, port int) {
 				r := Response{"success": false, "message": "Unable to server views"}
 				writeResponse(w, r)
 			} else {
-				t, _ := template.ParseFiles("../../public/view.html")
-				t.Execute(w, &reservations)
+				t, err := template.ParseFiles(htmlPath + "/public/view.html")
+				if err != nil {
+					l.err(err.Error())
+				} else {
+					t.Execute(w, &reservations)
+				}
 
 			}
 
