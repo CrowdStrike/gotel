@@ -18,8 +18,7 @@ func main() {
 	dbPass := flag.String("GOTEL_DB_PASSWORD", "", "DB Pass")
 	confPath := flag.String("GOTEL_CONFIG_PATH", "./gotel.gcfg", "config file path")
 	sysLogEnabled := flag.Bool("GOTEL_SYSLOG", false, "Use syslog for output logging")
-	flag.Pa
-	rse()
+	flag.Parse()
 	flagenv.Parse()
 
 	config := gotel.NewConfig(*confPath, *sysLogEnabled)
