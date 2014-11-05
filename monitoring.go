@@ -237,10 +237,12 @@ func jobChecker(db *sql.DB) {
 		query = "select id, app, component, owner, notify, frequency, time_units, last_checkin_timestamp from reservations where app='gotel' and component='coordinator'"
 	}
 	rows, err := db.Query(query)
+	defer rows.Close()
 	if err != nil {
 		l.err("Unable to run job checker [%v]", err)
+		return
 	}
-	defer rows.Close()
+
 	for rows.Next() {
 		res := reservation{}
 		rows.Scan(&res.JobID, &res.App, &res.Component, &res.Owner, &res.Notify, &res.Frequency, &res.TimeUnits, &res.LastCheckin)
