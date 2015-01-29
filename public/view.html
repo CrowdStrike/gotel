@@ -1,54 +1,53 @@
+<!DOCTYPE html>
 <html>
-<head>
-<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
-<style>
-table, td, th {
-    border: 1px solid black;
-}
-th {
-    background-color: black;
-    color: white;
-    padding:2px;
-}
-td {
-	padding:5px;
-	font-size: 14px;
-}
-</style>
-<!-- Latest compiled and minified CSS -->
-</head>
-<body>
- <h1>GoTel Reservations</h1>
- <table width="90%" style="margin: 20px 20px;" cellpadding="10">
- 	<tr>
- 		<th>JobID</th>
- 		<th>App</th>
- 		<th>Component</th>
- 		<th>Owner</th>
- 		<th>Frequency</th>
- 		<th>TimeUnits</th>
- 		<th>LastCheckin</th>
- 		<th>Num Checkins</th>
- 		<th>Status</th>
- 	</tr>
- {{range .}}
-    <tr>
-    <td>{{.JobID}}</td>
-    <td>{{.App}}</td>
-    <td>{{.Component}}</td>
-    <td>{{.Owner}}</td>
-    <td>{{.Frequency}}</td>
-    <td>{{.TimeUnits}}</td>
-    <td>{{.LastCheckinStr}}</td>
-    <td>{{.NumCheckins}}</td>
-    {{ if .FailingSLA }}
-    	<td><span style="color:red">FAILING</span></td>
-    {{ else }}
-		<td><span style="color:green">OK</span></td>
-    {{ end }}
-    </tr>
- {{end}}
-  </ul>
- </table>
- </body>
- </html>
+  <head>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
+  </head>
+  <body>
+    <div class="container">
+      <div class="page-header">
+        <h1>GoTel Reservations</h1>
+      </div>
+      <div class="row">
+        <div class="col-lg-12 col-md-12 col-sm-12">
+          <table class="table table-bordered table-condensed">
+            <thead>
+          <tr>
+                <th>JobID</th>
+                <th>App</th>
+                <th>Component</th>
+                <th>Owner</th>
+                <th>Frequency</th>
+                <th>Time Units</th>
+                <th>Last Checkin</th>
+                <th>Time Since Last Checkin</th>
+                <th>Num Checkins</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+            {{range .}}
+              <tr>
+                <td>{{.JobID}}</td>
+                <td>{{.App}}</td>
+                <td>{{.Component}}</td>
+                <td>{{.Owner}}</td>
+                <td>{{.Frequency}}</td>
+                <td>{{.TimeUnits}}</td>
+                <td>{{.LastCheckinStr}}</td>
+                <td>{{.TimeSinceLastCheckin}}</td>
+                <td>{{.NumCheckins}}</td>
+              {{ if .FailingSLA }}
+                <td class="danger">FAILING</td>
+              {{ else }}
+                <td class="success">OK</td>
+              {{ end }}
+              </tr>
+            {{end}}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
