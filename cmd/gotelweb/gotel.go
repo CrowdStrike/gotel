@@ -2,11 +2,13 @@ package main
 
 import (
 	"flag"
-	"github.com/CrowdStrike/gotel"
+
 	"github.com/ParsePlatform/go.flagenv"
+	"github.com/schleppy/gotel"
+
+	"log"
 
 	_ "github.com/go-sql-driver/mysql"
-	"log"
 
 	"time"
 )

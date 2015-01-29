@@ -74,7 +74,9 @@ func (ge *Endpoint) getReservations() ([]reservation, error) {
 	for rows.Next() {
 		res := reservation{}
 		rows.Scan(&res.JobID, &res.App, &res.Component, &res.Owner, &res.Notify, &res.Frequency, &res.TimeUnits, &res.LastCheckin, &res.NumCheckins)
-		res.LastCheckinStr = time.Unix(res.LastCheckin, 0).Format(time.RFC1123)
+		lastCheckin := time.Unix(res.LastCheckin, 0)
+		res.TimeSinceLastCheckin = RelTime(lastCheckin, time.Now(), "ago", "")
+		res.LastCheckinStr = lastCheckin.Format(time.RFC1123)
 		if FailsSLA(res) {
 			res.FailingSLA = true
 		} else {
@@ -283,6 +285,6 @@ func InitAPI(ge *Endpoint, port int, htmlPath string) {
 		return
 	})
 
-	server := http.ListenAndServe(":8080", nil)
+	server := http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 	log.Panic(server)
 }
