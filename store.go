@@ -211,10 +211,10 @@ func bootstrapDb(db *sql.DB, conf config) {
 	sql := `
 		CREATE TABLE IF NOT EXISTS reservations (
 		  id int(11) NOT NULL AUTO_INCREMENT,
-		  app varchar(30) DEFAULT NULL,
-		  component varchar(30) DEFAULT NULL,
-		  owner varchar(30) DEFAULT NULL,
-		  notify varchar(30) DEFAULT NULL,
+		  app varchar(150) DEFAULT NULL,
+		  component varchar(150) DEFAULT NULL,
+			owner text DEFAULT NULL,
+		  notify text DEFAULT NULL,
 		  frequency int(11) DEFAULT NULL,
 		  time_units varchar(30) DEFAULT NULL,
 		  inserted_timestamp int(11) DEFAULT NULL,

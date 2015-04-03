@@ -48,7 +48,7 @@ func Monitor(db *sql.DB) {
 }
 
 // InitializeMonitoring sets up alerters based on configuration
-func InitializeMonitoring(c config) {
+func InitializeMonitoring(c config, db *sql.DB) {
 	cfg = c
 	if cfg.Smtp.Enabled {
 		smtp := new(smtpAlerter)
@@ -68,7 +68,23 @@ func InitializeMonitoring(c config) {
 	for _, alerter := range alertFuncs {
 		alerter.Bootstrap()
 	}
+
+	// set up a ticker that runs every day that checks to clean up old logs to preserve disk space
+
+	//ticker := time.NewTicker(24 * time.Hour)
+	ticker := time.NewTicker(10 * time.Second)
+	go func() {
+		for t := range ticker.C {
+			if coordinator {
+				l.info("Running log cleanup at [%v]", t)
+				cleanUp(db, c.Main.DaysToStoreLogs)
+			}
+		}
+	}()
+
 }
+
+//--------------------- PRIVATE FUNCS ------------------------------
 
 func hasLock(db *sql.DB) bool {
 	var lck int
@@ -328,4 +344,39 @@ func storeJobRun(db *sql.DB) {
 		App:       "gotel",
 		Component: mode,
 	}, now)
+}
+
+// Cleanup should run on a scheduled ticker to allow GoTel to clean up after itself to prevent disk space issues in the
+// DB as the process is meant to run for years.
+func cleanUp(db *sql.DB, daysToStoreLogs int) {
+
+	// grab the unix time that was daysToStoreLogs ago, cleanup anything older than that to keep db size down
+	timeNow := time.Now().UTC().AddDate(0, 0, -daysToStoreLogs).Unix()
+
+	// clean up housekeeping
+	stmt, err := db.Prepare("DELETE FROM housekeeping WHERE last_checkin_timestamp < ?")
+	if err != nil {
+		l.err("Unable to prepare cleaup housekeeping statement")
+		return
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(timeNow)
+	if err != nil {
+		l.err("Unable cleanup old housekeeping logs, this could be bad [%v]", err)
+		return
+	}
+
+	// clean up alerts
+	stmt, err = db.Prepare("DELETE FROM alerts WHERE alert_time < ?")
+	if err != nil {
+		l.err("Unable to prepare cleaup alerts statement")
+		return
+	}
+	defer stmt.Close()
+	_, err = stmt.Exec(timeNow)
+	if err != nil {
+		l.err("Unable cleanup old alerts logs, this could be bad [%v]", err)
+		return
+	}
+
 }

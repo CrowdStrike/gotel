@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
+	"github.com/CrowdStrike/gotel"
 	"github.com/ParsePlatform/go.flagenv"
-	"github.com/schleppy/gotel"
 
 	"log"
 
@@ -30,7 +30,7 @@ func main() {
 
 	ge := &gotel.Endpoint{Db: db}
 
-	gotel.InitializeMonitoring(config)
+	gotel.InitializeMonitoring(config, db)
 
 	// set up a ticker that every n seconds we check the jobs that should have checked in
 	ticker := time.NewTicker(30 * time.Second)
@@ -40,5 +40,6 @@ func main() {
 			gotel.Monitor(ge.Db)
 		}
 	}()
+
 	gotel.InitAPI(ge, 8080, *htmlPath)
 }

@@ -10,6 +10,7 @@ type config struct {
 	Main struct {
 		GotelOwnerEmail    string
 		HoursBetweenAlerts int64
+		DaysToStoreLogs    int
 	}
 	Smtp struct {
 		Enabled     bool

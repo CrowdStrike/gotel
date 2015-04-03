@@ -1,6 +1,7 @@
 [main]
 gotelowneremail=bob@example.com
 hoursbetweenalerts=6
+daystostorelogs=30
 
 ; configure alerters, set to false to disable an alerter if you don't have it setup
 [smtp]
