@@ -71,8 +71,7 @@ func InitializeMonitoring(c config, db *sql.DB) {
 
 	// set up a ticker that runs every day that checks to clean up old logs to preserve disk space
 
-	//ticker := time.NewTicker(24 * time.Hour)
-	ticker := time.NewTicker(10 * time.Second)
+	ticker := time.NewTicker(24 * time.Hour)
 	go func() {
 		for t := range ticker.C {
 			if coordinator {
