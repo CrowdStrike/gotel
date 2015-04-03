@@ -36,6 +36,11 @@ Requirements
 -----
 0.1 expects a MySQL backend for storing jobs and leader election. Future plugins will allow direct integration with ZooKeeper for leader election but v1 keeps the minimum requirements for easier outside adoption.
 
+Web UI
+-----
+Below is a screenshot showing what the admin UI looks like when you browse to
+http://localhost:8080/status
+![Gotel Web UI](http://jimplush.com/public/images/gotel/gotel-web.png)
 
 Getting Started
 ----
@@ -175,3 +180,4 @@ Future ToDos
 [CrowdStrike]:http://crowdstrike.com/
 [Jim Plush]:http://jimplush.com
 [Sean Berry]:http://github.com/schleppy
+
