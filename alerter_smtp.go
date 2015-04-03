@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"net/smtp"
+	"strings"
 	"time"
 )
 
@@ -38,34 +39,42 @@ func (s *smtpAlerter) Alert(res reservation) {
 
 	l.info("SMTP alert on app [%s] component [%s] on ip [%s]\n", res.App, res.Component, ip)
 
-	// Connect to the remote SMTP server.
-	c, err := smtp.Dial(smtpHost + ":25")
-	if err != nil {
-		l.warn("[WARN] Unable to dial mail server: [%s] err: [%v]", smtpHost, err)
-		return
-	}
-	// Set the sender in header.
-	c.Mail(s.Cfg.Smtp.Fromaddress)
-	// Set the recipient in header
-	c.Rcpt(res.Notify)
+	peopleToNotify := strings.Split(res.Notify, ",")
 
-	// Connecting to mail server ?.
-	wc, err := c.Data()
-	if err != nil {
-		l.warn("[WARN] Unable to connect to mail server: [%s] err: [%v]", smtpHost, err)
-		return
-	}
-	defer wc.Close()
-	now := time.Now().Format(time.RFC822) // in case email delivery delay, let them know the actual date
-	subject := "Job Failed to checkin"
-	body := fmt.Sprintf("app [%s] component [%s] failed checkin on IP [%s]. Contact owner [%s]. Alert time is [%s]", res.App, res.Component, ip, res.Owner, now)
-	message := bytes.NewBufferString(fmt.Sprintf("Subject: %s\r\nFrom: %s\r\nReply-to: %s\r\nTo: %s\r\n\r\n%s", subject, s.Cfg.Smtp.Fromaddress, s.Cfg.Smtp.ReplyTO, res.Notify, body))
-	// Now push out the complete mail message
+	// split on the notifiers and send a unique email to each.
+	for _, emailAddyRaw := range peopleToNotify {
 
-	if _, err = message.WriteTo(wc); err != nil {
-		l.warn("[WARN] Unable to write to mail server: [%s] err: [%v]\n", smtpHost, err)
-		return
+		emailAddy := strings.TrimSpace(emailAddyRaw)
+
+		// Connect to the remote SMTP server.
+		c, err := smtp.Dial(smtpHost + ":25")
+		if err != nil {
+			l.warn("[WARN] Unable to dial mail server: [%s] err: [%v]", smtpHost, err)
+			return
+		}
+		// Set the sender in header.
+		c.Mail(s.Cfg.Smtp.Fromaddress)
+		// Set the recipient in header
+		c.Rcpt(emailAddy)
+
+		// Connecting to mail server ?.
+		wc, err := c.Data()
+		if err != nil {
+			l.warn("[WARN] Unable to connect to mail server: [%s] err: [%v]", smtpHost, err)
+			return
+		}
+		defer wc.Close()
+		now := time.Now().Format(time.RFC822) // in case email delivery delay, let them know the actual date
+		subject := "Job Failed to checkin"
+		body := fmt.Sprintf("app [%s] component [%s] failed checkin on IP [%s]. Contact owner [%s]. Alert time is [%s]\n\nNotification list [%s]", res.App, res.Component, ip, res.Owner, now, res.Notify)
+		message := bytes.NewBufferString(fmt.Sprintf("Subject: %s\r\nFrom: %s\r\nReply-to: %s\r\nTo: %s\r\n\r\n%s", subject, s.Cfg.Smtp.Fromaddress, s.Cfg.Smtp.ReplyTO, emailAddy, body))
+		// Now push out the complete mail message
+
+		if _, err = message.WriteTo(wc); err != nil {
+			l.warn("[WARN] Unable to write to mail server: [%s] err: [%v]\n", smtpHost, err)
+			return
+		}
+		l.info("Email sent for app [%s] component [%s]\n", res.App, res.Component)
 	}
-	l.info("Email sent for app [%s] component [%s]\n", res.App, res.Component)
 
 }

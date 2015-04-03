@@ -113,6 +113,7 @@ API
 ```sh
 // make a reservation that tells GoTel testapp/requests will complete work every 5 minutes or alert me
 // supported time_units currently are seconds,minutes,hours
+// notify parameter supports a comma-separated list of recipients that will receive an alert when a job fails to checkin
 curl -XPOST 'http://127.0.0.1:8080/reservation' -i -H "Content-type: application/json" -d '
 {
   "app": "testapp",
