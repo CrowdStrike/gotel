@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"html/template"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"time"
@@ -12,6 +13,19 @@ import (
 
 // Response will hold a response sent back to the caller
 type Response map[string]interface{}
+
+type badGuest struct {
+	App       string
+	Component string
+	NumFails  int64
+}
+
+type node struct {
+	Id            int
+	IpAddress     string
+	NodeId        int
+	IsCoordinator bool
+}
 
 var validTimeUnits = map[string]int{"seconds": 1, "minutes": 1, "hours": 1}
 
@@ -85,6 +99,60 @@ func (ge *Endpoint) getReservations() ([]reservation, error) {
 		reservations = append(reservations, res)
 	}
 	return reservations, nil
+}
+
+func (ge *Endpoint) getNodes() ([]node, error) {
+
+	query := "SELECT id, ip_address, node_id FROM nodes ORDER BY id;"
+	rows, err := ge.Db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	nodes := []node{}
+	defer rows.Close()
+	for rows.Next() {
+		res := node{IsCoordinator: false}
+		rows.Scan(&res.Id, &res.IpAddress, &res.NodeId)
+
+		resp, err := http.Get(fmt.Sprintf("http://%s:8080/is-coordinator", res.IpAddress))
+		if err != nil {
+			l.warn("Unable to contact node [%s] assuming offline", res.IpAddress)
+			continue
+		}
+		defer resp.Body.Close()
+
+		if resp.StatusCode != 200 {
+			l.warn("Didn't get a 200OK reply back from ip [%s]", res.IpAddress)
+			continue
+		}
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			l.warn("Unable to read node response")
+		}
+		if string(body) == "true" {
+			res.IsCoordinator = true
+		}
+
+		nodes = append(nodes, res)
+	}
+	return nodes, nil
+}
+
+func (ge *Endpoint) getBadGuests() ([]badGuest, error) {
+	query := "select  app, component, count(*) as cnt from alerts group by app, component ORDER by cnt DESC ;"
+	rows, err := ge.Db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	guests := []badGuest{}
+	defer rows.Close()
+	for rows.Next() {
+		res := badGuest{}
+		rows.Scan(&res.App, &res.Component, &res.NumFails)
+		guests = append(guests, res)
+	}
+	return guests, nil
 }
 
 func (ge *Endpoint) listReservations(w http.ResponseWriter, req *http.Request) {
@@ -238,6 +306,44 @@ func InitAPI(ge *Endpoint, port int, htmlPath string) {
 
 			}
 
+		}
+	})
+
+	http.HandleFunc("/badguests", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			reservations, err := ge.getBadGuests()
+
+			if err != nil {
+				l.err(err.Error())
+				r := Response{"success": false, "message": "Unable to server views"}
+				writeResponse(w, r)
+			} else {
+				t, err := template.ParseFiles(htmlPath + "/public/badguests.html")
+				if err != nil {
+					l.err(err.Error())
+				} else {
+					t.Execute(w, &reservations)
+				}
+			}
+		}
+	})
+
+	http.HandleFunc("/nodes", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" {
+			reservations, err := ge.getNodes()
+
+			if err != nil {
+				l.err(err.Error())
+				r := Response{"success": false, "message": "Unable to server views"}
+				writeResponse(w, r)
+			} else {
+				t, err := template.ParseFiles(htmlPath + "/public/nodes.html")
+				if err != nil {
+					l.err(err.Error())
+				} else {
+					t.Execute(w, &reservations)
+				}
+			}
 		}
 	})
 

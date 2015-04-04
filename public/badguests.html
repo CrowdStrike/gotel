@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.2.0/css/bootstrap.min.css">
+    <title>Bad GoTel Guests</title>
+  </head>
+
+  <body>
+    <div class="container">
+      <div class="page-header">
+        <h1>GoTel Bad Guests</h1>
+        <a href="/status">Back</a>
+      </div>
+      <div class="row">
+        <div class="col-lg-12 col-md-12 col-sm-12">
+          <table class="table table-bordered table-condensed">
+            <thead>
+          <tr>
+                <th>App</th>
+                <th>Component</th>
+                <th>Number of Failed checkins recently</th>
+              </tr>
+            </thead>
+            <tbody>
+            {{range .}}
+              <tr>
+                <td>{{.App}}</td>
+                <td>{{.Component}}</td>
+                <td>{{.NumFails}}</td>
+              </tr>
+            {{end}}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
+
