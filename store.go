@@ -1,4 +1,4 @@
-package gotel
+package main
 
 import (
 	"database/sql"
@@ -51,13 +51,13 @@ type snooze struct {
 
 // InitDb initialzes and then bootstraps the database
 func InitDb(host, user, pass string, conf config) *sql.DB {
-	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:3306)/gotel", user, pass, host))
+	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s)/gotel", user, pass, host))
 	if err != nil {
 		panic(err)
 	}
 	err = db.Ping()
 	if err != nil {
-		panic(fmt.Sprintf("Unable to ping the DB at host [%s] user [%s]", host, user))
+		panic(fmt.Sprintf("Unable to ping the DB at host [%s] user [%s]; %s", host, user, err))
 	}
 	bootstrapDb(db, conf)
 	return db

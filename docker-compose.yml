@@ -1,0 +1,31 @@
+version: "3.3"
+services:
+  db:
+     image: mysql:5.7
+     volumes:
+       - db_data:/var/lib/mysql
+     restart: always
+     environment:
+       MYSQL_ROOT_PASSWORD: admin123
+       MYSQL_DATABASE: gotel
+     ports:
+      - 3306:3306
+
+  gotel:
+    depends_on:
+      - db
+    build: .
+    volumes:
+      - ${PWD}/tmp:/var/tmp/gotel
+    ports:
+      - 8080:8080
+    restart: always
+    environment:
+      GOTEL_DB_HOST: db:3306
+      GOTEL_DB_USER: root
+      GOTEL_DB_PASSWORD: admin123
+      GOTEL_CONFIG_PATH: /etc/gotel/gotel.gcfg
+    command: ["/bin/wait-for-it.sh", "-t",  "15", "db:3306", "--", "/go/bin/gotel"]
+volumes:
+    db_data:
+

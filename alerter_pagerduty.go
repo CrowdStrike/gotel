@@ -1,4 +1,4 @@
-package gotel
+package main
 
 import (
 	"fmt"

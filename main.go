@@ -1,0 +1,49 @@
+package main
+
+import (
+	"flag"
+
+	"github.com/ParsePlatform/go.flagenv"
+
+	"log"
+
+	_ "github.com/go-sql-driver/mysql"
+
+	"time"
+)
+
+func main() {
+
+	dbHost := flag.String("GOTEL_DB_HOST", "127.0.0.1", "Host of the DB instance")
+	dbUser := flag.String("GOTEL_DB_USER", "root", "DB User")
+	dbPass := flag.String("GOTEL_DB_PASSWORD", "", "DB Pass")
+	confPath := flag.String("GOTEL_CONFIG_PATH", "./gotel.gcfg", "config file path")
+	sysLogEnabled := flag.Bool("GOTEL_SYSLOG", false, "Use syslog for output logging")
+	htmlPath := flag.String("GOTEL_HTML_PATH", "../..", "Path to the public folder for storing HTML files")
+	flag.Parse()
+	flagenv.Parse()
+
+
+	log.Printf("GOTEL_DB_HOST=%s\n", *dbHost)
+	log.Printf("GOTEL_DB_USER=%s\n", *dbUser)
+	log.Printf("GOTEL_CONFIG_PATH=%s", *confPath)
+
+	config := NewConfig(*confPath, *sysLogEnabled)
+	db := InitDb(*dbHost, *dbUser, *dbPass, config)
+	defer db.Close()
+
+	ge := &Endpoint{Db: db}
+
+	InitializeMonitoring(config, db)
+
+	// set up a ticker that every n seconds we check the jobs that should have checked in
+	ticker := time.NewTicker(30 * time.Second)
+	go func() {
+		for t := range ticker.C {
+			log.Println("Running job checker at ", t)
+			Monitor(ge.Db)
+		}
+	}()
+
+	InitAPI(ge, 8080, *htmlPath)
+}
