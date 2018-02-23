@@ -13,12 +13,14 @@ var (
 	smtpHost string
 	smtpUser string
 	smtpPass string
+	smtpPort int
 )
 
 func init() {
 	flag.StringVar(&smtpHost, "GOTEL_SMTP_HOST", "", "Host of the SMTP server for sending mail")
 	flag.StringVar(&smtpUser, "GOTEL_SMTP_USER", "", "SMTP user name")
 	flag.StringVar(&smtpPass, "GOTEL_SMTP_PASS", "", "SMTP password")
+	flag.IntVar(&smtpPort, "GOTEL_SMTP_PORT", 25, "SMTP port")
 }
 
 func (s *smtpAlerter) Bootstrap() {
@@ -50,6 +52,7 @@ func (s *smtpAlerter) Alert(res reservation) bool {
 	// split on the notifiers and send a unique email to each.
 	for _, emailAddyRaw := range peopleToNotify {
 
+		smtpPair := fmt.Sprintf("%s:%d", smtpHost, smtpPort)
 		emailAddy := strings.TrimSpace(emailAddyRaw)
 		now := time.Now().Format(time.RFC822) // in case email delivery delay, let them know the actual date
 		subject := "Job Failed to checkin"
@@ -58,7 +61,7 @@ func (s *smtpAlerter) Alert(res reservation) bool {
 
 		// Now push out the complete mail message
 		auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
-		if err = smtp.SendMail(smtpHost, auth, s.Cfg.Smtp.Fromaddress, []string{emailAddy}, message.Bytes()); err != nil {
+		if err = smtp.SendMail(smtpPair, auth, s.Cfg.Smtp.Fromaddress, []string{emailAddy}, message.Bytes()); err != nil {
 			l.warn("[WARN] Unable to write to mail server: host: [%s] user: [%s] err: [%v]\n", smtpHost, smtpUser, err)
 			return false
 		}
