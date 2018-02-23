@@ -12,7 +12,7 @@ import (
 )
 
 type alerter interface {
-	Alert(res reservation)
+	Alert(res reservation) bool
 	Name() string
 	Bootstrap()
 }
@@ -262,11 +262,18 @@ func jobChecker(db *sql.DB) {
 		res := reservation{}
 		rows.Scan(&res.JobID, &res.App, &res.Component, &res.Owner, &res.Notify, &res.Frequency, &res.TimeUnits, &res.LastCheckin)
 
-		if FailsSLA(res) && !alreadySentRecently(res) {
+		if FailsSLA(res) {
 			alerterNames := []string{}
 			for _, alerter := range alertFuncs {
 				alerterNames = append(alerterNames, alerter.Name())
-				go alerter.Alert(res)
+
+				if !alreadySentRecently(res, alerter.Name()) {
+					if alerter.Alert(res) {
+						updateSentRecently(res, alerter.Name())
+					}
+				} else {
+					l.info("Already sent alert for [%s/%s/%s]", res.App, res.Component, alerter.Name())
+				}
 			}
 			storeAlert(res, db, alerterNames)
 		}
@@ -274,30 +281,31 @@ func jobChecker(db *sql.DB) {
 	storeJobRun(db)
 }
 
+func (r *reservation) mapKey(alerterName string) string {
+	return r.App + r.Component + alerterName
+}
+
 // check to see if we've already sent this alert recently
-func alreadySentRecently(res reservation) bool {
+func alreadySentRecently(res reservation, alerterName string) bool {
 	timeNow := time.Now().UTC()
-	mapKey := res.App + res.Component
 	waitForNotifyTime := time.Duration(cfg.Main.HoursBetweenAlerts) * time.Hour
 
-	_, ok := sentAlerts[mapKey]
+	lastSent, ok := sentAlerts[res.mapKey(alerterName)]
 	if !ok {
-		sentAlerts[mapKey] = timeNow
-		l.info("Sending new alert for [%s/%s]", res.App, res.Component)
 		return false
 	}
+
 	// check to see if the time elapsed goes over our threshold
-
-	duration := timeNow.Sub(sentAlerts[mapKey])
+	duration := timeNow.Sub(lastSent)
 	if duration >= waitForNotifyTime {
-		sentAlerts[mapKey] = timeNow
-		l.info("Sent alert already but duration ran out [%s/%s]", res.App, res.Component)
 		return false
 	}
 
-	l.info("Already sent alert for [%s/%s]", res.App, res.Component)
 	return true
+}
 
+func updateSentRecently(res reservation, alerterName string) {
+	sentAlerts[res.mapKey(alerterName)] = time.Now()
 }
 
 // FailsSLA monitors the reservations and determines if any jobs haven't checked in within
