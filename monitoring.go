@@ -270,12 +270,12 @@ func jobChecker(db *sql.DB) {
 				if !alreadySentRecently(res, alerter.Name()) {
 					if alerter.Alert(res) {
 						updateSentRecently(res, alerter.Name())
+						storeAlert(res, db, alerterNames)
 					}
 				} else {
 					l.info("Already sent alert for [%s/%s/%s]", res.App, res.Component, alerter.Name())
 				}
 			}
-			storeAlert(res, db, alerterNames)
 		}
 	}
 	storeJobRun(db)
