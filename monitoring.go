@@ -263,14 +263,11 @@ func jobChecker(db *sql.DB) {
 		rows.Scan(&res.JobID, &res.App, &res.Component, &res.Owner, &res.Notify, &res.Frequency, &res.TimeUnits, &res.LastCheckin)
 
 		if FailsSLA(res) {
-			alerterNames := []string{}
 			for _, alerter := range alertFuncs {
-				alerterNames = append(alerterNames, alerter.Name())
-
 				if !alreadySentRecently(res, alerter.Name()) {
 					if alerter.Alert(res) {
 						updateSentRecently(res, alerter.Name())
-						storeAlert(res, db, alerterNames)
+						storeAlert(res, db, []string{alerter.Name()})
 					}
 				} else {
 					l.info("Already sent alert for [%s/%s/%s]", res.App, res.Component, alerter.Name())
