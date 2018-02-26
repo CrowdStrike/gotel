@@ -14,7 +14,6 @@ type config struct {
 	}
 	Smtp struct {
 		Enabled     bool
-		SmtpHost    string
 		Fromaddress string
 		ReplyTO     string
 	}

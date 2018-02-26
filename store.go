@@ -205,7 +205,6 @@ func bootstrapDb(db *sql.DB, conf config) {
 	_, err := db.Exec(alertSQL)
 	if err != nil {
 		panic(err)
-		return
 	}
 
 	sql := `
@@ -228,7 +227,6 @@ func bootstrapDb(db *sql.DB, conf config) {
 	_, err = db.Exec(sql)
 	if err != nil {
 		panic(err)
-		return
 	}
 
 	housekeeping := `CREATE TABLE IF NOT EXISTS housekeeping (
@@ -243,7 +241,6 @@ func bootstrapDb(db *sql.DB, conf config) {
 	_, err = db.Exec(housekeeping)
 	if err != nil {
 		panic(err)
-		return
 	}
 
 	nodes := `CREATE TABLE IF NOT EXISTS nodes (
@@ -256,7 +253,6 @@ func bootstrapDb(db *sql.DB, conf config) {
 	_, err = db.Exec(nodes)
 	if err != nil {
 		panic(err)
-		return
 	}
 
 	// store gotel as the initial application to monitor
