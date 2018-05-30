@@ -1,17 +1,28 @@
 package gotel
 
 import (
+	"flag"
 	"fmt"
 
 	"github.com/stvp/pager"
 )
+
+var (
+	pdServiceKey string
+)
+
+func init() {
+	flag.StringVar(&pdServiceKey, "GOTEL_PD_SERVICE_KEY", "", "PagerDuty service key to use for alerts")
+}
 
 type pagerDutyAlerter struct {
 	Cfg config
 }
 
 func (s *pagerDutyAlerter) Bootstrap() {
-
+	if pdServiceKey != "" {
+		s.Cfg.Pagerduty.Servicekey = pdServiceKey
+	}
 }
 
 func (s *pagerDutyAlerter) Name() string {
