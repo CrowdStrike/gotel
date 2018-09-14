@@ -190,25 +190,43 @@ func getSecondsFromUnits(freq int, units string) int {
 func bootstrapDb(db *sql.DB, conf config) {
 
 	l.info("Bootstrapping GoTel DB tables")
-
-	alertSQL := `
-			CREATE TABLE IF NOT EXISTS  alerts (
-			  id int(11) unsigned NOT NULL AUTO_INCREMENT,
-			  app varchar(30) DEFAULT NULL,
-			  component varchar(30) DEFAULT NULL,
-			  alert_time int(11) DEFAULT NULL,
-			  alerters text DEFAULT NULL,
-			  insert_time timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-			  PRIMARY KEY (id)
-			) ENGINE=InnoDB DEFAULT CHARSET=utf8;`
-
-	_, err := db.Exec(alertSQL)
+	versions := getTablesVersions(db)
+	tx, err := db.Begin()
 	if err != nil {
+		l.err("Could not start transaction [%v]", err)
 		panic(err)
 	}
 
-	sql := `
-		CREATE TABLE IF NOT EXISTS reservations (
+	if ver, hasTable := versions["tables_versions"]; !hasTable {
+		doTxQuery(tx, `CREATE TABLE IF NOT EXISTS tables_versions (
+		  id int(11) unsigned NOT NULL AUTO_INCREMENT,
+		  table_name varchar(30) NOT NULL,
+		  table_version int(11) NOT NULL DEFAULT 0,
+		  PRIMARY KEY (id),
+		  UNIQUE KEY uniq_name (table_name)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8;`)
+		setTableVersion(tx, "tables_versions", 0)
+	} else {
+		l.info("tables_versions is version %d", ver)
+	}
+
+	if ver, hasTable := versions["alerts"]; !hasTable {
+		doTxQuery(tx, `CREATE TABLE IF NOT EXISTS alerts (
+		  id int(11) unsigned NOT NULL AUTO_INCREMENT,
+		  app varchar(30) DEFAULT NULL,
+		  component varchar(30) DEFAULT NULL,
+		  alert_time int(11) DEFAULT NULL,
+		  alerters text DEFAULT NULL,
+		  insert_time timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+		  PRIMARY KEY (id)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8;`)
+		setTableVersion(tx, "alerts", 0)
+	} else {
+		l.info("alerts is version %d", ver)
+	}
+
+	if ver, hasTable := versions["reservations"]; !hasTable {
+		doTxQuery(tx, `CREATE TABLE IF NOT EXISTS reservations (
 		  id int(11) NOT NULL AUTO_INCREMENT,
 		  app varchar(150) DEFAULT NULL,
 		  component varchar(150) DEFAULT NULL,
@@ -222,14 +240,14 @@ func bootstrapDb(db *sql.DB, conf config) {
 		  last_checkin_timestamp int(11) DEFAULT NULL,
 		  PRIMARY KEY (id),
 		  UNIQUE KEY uniq_app (app,component)
-		) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;
-			`
-	_, err = db.Exec(sql)
-	if err != nil {
-		panic(err)
+		) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;`)
+		setTableVersion(tx, "reservations", 0)
+	} else {
+		l.info("reservations is version %d", ver)
 	}
 
-	housekeeping := `CREATE TABLE IF NOT EXISTS housekeeping (
+	if ver, hasTable := versions["housekeeping"]; !hasTable {
+		doTxQuery(tx, `CREATE TABLE IF NOT EXISTS housekeeping (
 		  id int(11) NOT NULL AUTO_INCREMENT,
 		  app varchar(30) DEFAULT NULL,
 		  component varchar(30) DEFAULT NULL,
@@ -237,22 +255,23 @@ func bootstrapDb(db *sql.DB, conf config) {
 		  last_checkin_timestamp int(11) DEFAULT NULL,
 		  insert_time timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 		  PRIMARY KEY (id)
-		) ENGINE=InnoDB DEFAULT CHARSET=utf8;`
-	_, err = db.Exec(housekeeping)
-	if err != nil {
-		panic(err)
+		) ENGINE=InnoDB DEFAULT CHARSET=utf8;`)
+		setTableVersion(tx, "housekeeping", 0)
+	} else {
+		l.info("housekeeping is version %d", ver)
 	}
 
-	nodes := `CREATE TABLE IF NOT EXISTS nodes (
-			  id int(11) unsigned NOT NULL AUTO_INCREMENT,
-			  ip_address varchar(20) DEFAULT NULL,
-			  node_id int(30) DEFAULT NULL,
-			  PRIMARY KEY (id),
-			  UNIQUE KEY uniq_ip (ip_address)
-			) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8;`
-	_, err = db.Exec(nodes)
-	if err != nil {
-		panic(err)
+	if ver, hasTable := versions["nodes"]; !hasTable {
+		doTxQuery(tx, `CREATE TABLE IF NOT EXISTS nodes (
+		  id int(11) unsigned NOT NULL AUTO_INCREMENT,
+		  ip_address varchar(20) DEFAULT NULL,
+		  node_id int(30) DEFAULT NULL,
+		  PRIMARY KEY (id),
+		  UNIQUE KEY uniq_ip (ip_address)
+		) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8;`)
+		setTableVersion(tx, "nodes", 0)
+	} else {
+		l.info("nodes is version %d", ver)
 	}
 
 	// store gotel as the initial application to monitor
@@ -261,7 +280,7 @@ func bootstrapDb(db *sql.DB, conf config) {
 	now := time.Now().UTC().Unix()
 	gotelApp := `INSERT INTO reservations (app, component, owner, notify, frequency, time_units, inserted_timestamp, last_checkin_timestamp)
 		VALUES ('gotel', 'coordinator', ?, ?, 5, 'minutes', ?, ?) ON DUPLICATE KEY UPDATE owner=?`
-	_, err = db.Exec(gotelApp, conf.Main.GotelOwnerEmail, conf.Main.GotelOwnerEmail, now, tomorrow, conf.Main.GotelOwnerEmail)
+	_, err = tx.Exec(gotelApp, conf.Main.GotelOwnerEmail, conf.Main.GotelOwnerEmail, now, tomorrow, conf.Main.GotelOwnerEmail)
 	if err != nil {
 		l.warn("storing gotel/coordinator as initial app [%q]", err)
 	} else {
@@ -270,10 +289,81 @@ func bootstrapDb(db *sql.DB, conf config) {
 
 	gotelAppWorker := `INSERT INTO reservations (app, component, owner, notify, frequency, time_units, inserted_timestamp, last_checkin_timestamp)
 		VALUES ('gotel', 'worker', ?, ?, 5, 'minutes', ?, ?) ON DUPLICATE KEY UPDATE owner=?`
-	_, err = db.Exec(gotelAppWorker, conf.Main.GotelOwnerEmail, conf.Main.GotelOwnerEmail, now, tomorrow, conf.Main.GotelOwnerEmail)
+	_, err = tx.Exec(gotelAppWorker, conf.Main.GotelOwnerEmail, conf.Main.GotelOwnerEmail, now, tomorrow, conf.Main.GotelOwnerEmail)
 	if err != nil {
 		l.warn("storing gotel/worker as initial app [%v]", err)
 	} else {
 		l.info("Inserted gotel/worker as first app to monitor")
 	}
+
+	tx.Commit()
+	l.info("DB ready")
+}
+
+func getTablesVersions(db *sql.DB) map[string]int {
+	var (
+		tbl string
+		ver int
+	)
+	versions := make(map[string]int)
+
+	rows, err := db.Query(`SELECT table_name FROM information_schema.tables WHERE table_schema='gotel'`)
+	if err != nil {
+		l.err("Unable to select tables [%v]", err)
+		panic(err)
+	}
+
+	for rows.Next() {
+		err = rows.Scan(&tbl)
+		if err != nil {
+			l.err("Unable to scan table rows [%v]", err)
+			panic(err)
+		}
+		versions[tbl] = 0
+	}
+	rows.Close()
+
+	if _, hasKey := versions["tables_versions"]; hasKey {
+		rows, err = db.Query(`SELECT table_name, table_version FROM tables_versions`)
+		if err != nil {
+			l.err("Unable to select tables versions [%v]", err)
+			panic(err)
+		}
+
+		for rows.Next() {
+			err = rows.Scan(&tbl, &ver)
+			if err != nil {
+				l.err("Unable to scan table version [%v]", err)
+				panic(err)
+			}
+			versions[tbl] = ver
+		}
+		rows.Close()
+	}
+
+	return versions
+}
+
+func setTableVersion(tx *sql.Tx, tbl string, ver int) {
+	table_version := `INSERT INTO tables_versions (table_name, table_version)
+		VALUES (?, ?) ON DUPLICATE KEY UPDATE table_version=?`
+	_, err := tx.Exec(table_version, tbl, ver, ver)
+	if err != nil {
+		l.err("Could not set table version [%v]", err)
+		tx.Rollback()
+		panic(err)
+	} else {
+		l.info("Updated %s to version %d", tbl, ver)
+	}
+}
+
+func doTxQuery(tx *sql.Tx, query string) sql.Result {
+	res, err := tx.Exec(query)
+
+	if err != nil {
+		tx.Rollback()
+		panic(err)
+	}
+
+	return res
 }
