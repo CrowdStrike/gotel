@@ -74,8 +74,8 @@ func storeReservation(db *sql.DB, r *reservation) (bool, error) {
 		return false, errors.New("Unable to store reservations for less than 10 seconds at this time, for no real reason.")
 	}
 
-	stmt, err := db.Prepare(`INSERT INTO reservations(app, component, owner, notify, frequency, time_units, inserted_timestamp, last_checkin_timestamp) 
-		VALUES(?,?,?,?,?,?,?,?) 
+	stmt, err := db.Prepare(`INSERT INTO reservations(app, component, owner, notify, frequency, time_units, inserted_timestamp, last_checkin_timestamp)
+		VALUES (?,?,?,?,?,?,?,?)
 		ON DUPLICATE KEY UPDATE notify=?, frequency=?, time_units=?
 		`)
 
@@ -104,7 +104,7 @@ func storeReservation(db *sql.DB, r *reservation) (bool, error) {
 func logHouseKeeping(db *sql.DB, c checkin, now int64) (bool, error) {
 
 	//Insert
-	stmt, err := db.Prepare("insert into housekeeping(app, component, notes, last_checkin_timestamp) values(?, ?, ?, ?)")
+	stmt, err := db.Prepare("INSERT INTO housekeeping(app, component, notes, last_checkin_timestamp) VALUES (?, ?, ?, ?)")
 	if err != nil {
 		l.warn("Unable to prepare record %s", err)
 		return false, errors.New("Unable to store checkin")
@@ -212,7 +212,7 @@ func bootstrapDb(db *sql.DB, conf config) {
 		  id int(11) NOT NULL AUTO_INCREMENT,
 		  app varchar(150) DEFAULT NULL,
 		  component varchar(150) DEFAULT NULL,
-			owner text DEFAULT NULL,
+		  owner text DEFAULT NULL,
 		  notify text DEFAULT NULL,
 		  frequency int(11) DEFAULT NULL,
 		  time_units varchar(30) DEFAULT NULL,

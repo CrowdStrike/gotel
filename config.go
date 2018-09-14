@@ -1,7 +1,7 @@
 package gotel
 
 import (
-	"code.google.com/p/gcfg"
+	"gopkg.in/gcfg.v1"
 )
 
 var l *logging
