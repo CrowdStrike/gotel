@@ -17,6 +17,7 @@ type reservation struct {
 	JobID                int    `json:"job_id"`
 	Owner                string `json:"owner"`
 	Notify               string `json:"notify"`
+	AlertMessage         string `json:"alert_msg"`
 	App                  string `json:"app"`
 	Component            string `json:"component"`
 	Frequency            int    `json:"frequency"`
@@ -49,7 +50,7 @@ type snooze struct {
 	TimeUnits string `json:"time_units"`
 }
 
-// InitDb initialzes and then bootstraps the database
+// InitDb initializes and then bootstraps the database
 func InitDb(host, user, pass string, conf config) *sql.DB {
 	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:3306)/gotel", user, pass, host))
 	if err != nil {
@@ -74,9 +75,9 @@ func storeReservation(db *sql.DB, r *reservation) (bool, error) {
 		return false, errors.New("Unable to store reservations for less than 10 seconds at this time, for no real reason.")
 	}
 
-	stmt, err := db.Prepare(`INSERT INTO reservations(app, component, owner, notify, frequency, time_units, inserted_timestamp, last_checkin_timestamp)
-		VALUES (?,?,?,?,?,?,?,?)
-		ON DUPLICATE KEY UPDATE notify=?, frequency=?, time_units=?
+	stmt, err := db.Prepare(`INSERT INTO reservations(app, component, owner, notify, alert_msg, frequency, time_units, inserted_timestamp, last_checkin_timestamp)
+		VALUES (?,?,?,?,?,?,?,?,?)
+		ON DUPLICATE KEY UPDATE notify=?, alert_msg=?, frequency=?, time_units=?
 		`)
 
 	if err != nil {
@@ -85,7 +86,8 @@ func storeReservation(db *sql.DB, r *reservation) (bool, error) {
 	}
 	defer stmt.Close()
 
-	res, err := stmt.Exec(r.App, r.Component, r.Owner, r.Notify, r.Frequency, r.TimeUnits, now, tomorrow, r.Notify, r.Frequency, r.TimeUnits)
+	res, err := stmt.Exec(r.App, r.Component, r.Owner, r.Notify, r.AlertMessage, r.Frequency, r.TimeUnits, now, tomorrow,
+		r.Notify, r.AlertMessage, r.Frequency, r.TimeUnits)
 	if err != nil {
 		l.warn("Unable to insert record %s", err)
 		return false, errors.New("Unable to save record")
@@ -232,6 +234,7 @@ func bootstrapDb(db *sql.DB, conf config) {
 		  component varchar(150) DEFAULT NULL,
 		  owner text DEFAULT NULL,
 		  notify text DEFAULT NULL,
+		  alert_msg text DEFAULT NULL,
 		  frequency int(11) DEFAULT NULL,
 		  time_units varchar(30) DEFAULT NULL,
 		  inserted_timestamp int(11) DEFAULT NULL,
@@ -241,9 +244,14 @@ func bootstrapDb(db *sql.DB, conf config) {
 		  PRIMARY KEY (id),
 		  UNIQUE KEY uniq_app (app,component)
 		) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8;`)
-		setTableVersion(tx, "reservations", 0)
+		setTableVersion(tx, "reservations", 1)
 	} else {
 		l.info("reservations is version %d", ver)
+
+		if ver < 1 {
+			doTxQuery(tx, `ALTER TABLE reservations ADD COLUMN alert_msg text DEFAULT NULL AFTER notify;`)
+			setTableVersion(tx, "reservations", 1)
+		}
 	}
 
 	if ver, hasTable := versions["housekeeping"]; !hasTable {
@@ -345,9 +353,9 @@ func getTablesVersions(db *sql.DB) map[string]int {
 }
 
 func setTableVersion(tx *sql.Tx, tbl string, ver int) {
-	table_version := `INSERT INTO tables_versions (table_name, table_version)
+	tableVersion := `INSERT INTO tables_versions (table_name, table_version)
 		VALUES (?, ?) ON DUPLICATE KEY UPDATE table_version=?`
-	_, err := tx.Exec(table_version, tbl, ver, ver)
+	_, err := tx.Exec(tableVersion, tbl, ver, ver)
 	if err != nil {
 		l.err("Could not set table version [%v]", err)
 		tx.Rollback()
@@ -361,6 +369,7 @@ func doTxQuery(tx *sql.Tx, query string) sql.Result {
 	res, err := tx.Exec(query)
 
 	if err != nil {
+		l.err("Could not execute query [%v]", err)
 		tx.Rollback()
 		panic(err)
 	}

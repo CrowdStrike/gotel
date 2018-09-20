@@ -114,11 +114,16 @@ API
 // make a reservation that tells GoTel testapp/requests will complete work every 5 minutes or alert me
 // supported time_units currently are seconds,minutes,hours
 // notify parameter supports a comma-separated list of recipients that will receive an alert when a job fails to checkin
+// alert_msg will replace the following fields with their corresponding values:
+// {jobid}, {app}, {component}, {owner}, {notify}, {frequency}, {last}, {since}, {checkins}, {srv}
+// where {last} is the timestamp of the last checkin, {since} is how long ago the last checkin was, {checkins} is the
+// total number of checkins so far, and {srv} is the IP address of the server sending the notification
 curl -XPOST 'http://127.0.0.1:8080/reservation' -i -H "Content-type: application/json" -d '
 {
   "app": "testapp",
   "component": "requests",
   "notify": "jim@foo.com",
+  "alert_msg": "App: [{app}] Component: [{component}] failed checkin on IP [{srv}]. Contact owner [{owner}]"
   "frequency": 5,
   "time_units": "minutes",
   "owner": "jim@foo.com"

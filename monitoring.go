@@ -246,10 +246,10 @@ func jobChecker(db *sql.DB) {
 
 	var query string
 	if coordinator {
-		query = "select id, app, component, owner, notify, frequency, time_units, last_checkin_timestamp from reservations"
+		query = "SELECT id, app, component, owner, notify, alert_msg, frequency, time_units, last_checkin_timestamp FROM reservations"
 	} else {
 		// if we're a worker we just want to monitor the co-ordinator
-		query = "select id, app, component, owner, notify, frequency, time_units, last_checkin_timestamp from reservations where app='gotel' and component='coordinator'"
+		query = "SELECT id, app, component, owner, notify, alert_msg, frequency, time_units, last_checkin_timestamp FROM reservations WHERE app='gotel' AND component='coordinator'"
 	}
 	rows, err := db.Query(query)
 	defer rows.Close()
@@ -259,10 +259,16 @@ func jobChecker(db *sql.DB) {
 	}
 
 	for rows.Next() {
+		var alertMessage sql.NullString
 		res := reservation{}
-		rows.Scan(&res.JobID, &res.App, &res.Component, &res.Owner, &res.Notify, &res.Frequency, &res.TimeUnits, &res.LastCheckin)
+		rows.Scan(&res.JobID, &res.App, &res.Component, &res.Owner, &res.Notify, &alertMessage, &res.Frequency,
+			&res.TimeUnits, &res.LastCheckin)
 
 		if FailsSLA(res) {
+			if (!alertMessage.Valid) || (alertMessage.String == "") {
+				alertMessage.String = "App: [{app}] Component: [{component}] failed checkin on IP [{srv}]. Contact owner [{owner}]"
+			}
+			res.AlertMessage = res.formatAlert(alertMessage.String)
 			for _, alerter := range alertFuncs {
 				if !alreadySentRecently(res, alerter.Name()) {
 					if alerter.Alert(res) {

@@ -6,6 +6,8 @@ import (
 	"math"
 	"net"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 )
 
@@ -113,4 +115,27 @@ func RelTime(a, b time.Time, albl, blbl string) string {
 		}
 	}
 	return fmt.Sprintf(mag.format, args...)
+}
+
+func (res reservation) formatAlert(format string) string {
+	lastCheckin := time.Unix(res.LastCheckin, 0)
+	ip, err := externalIP()
+	if err != nil {
+		ip = "N/A"
+	}
+
+	replacer := strings.NewReplacer(
+		"{jobid}", strconv.Itoa(res.JobID),
+		"{app}", res.App,
+		"{component}", res.Component,
+		"{owner}", res.Owner,
+		"{notify}", res.Notify,
+		"{frequency}", strconv.Itoa(res.Frequency) + res.TimeUnits,
+		"{last}", time.Unix(res.LastCheckin, 0).Format(time.RFC1123),
+		"{since}", RelTime(lastCheckin, time.Now(), "ago", ""),
+		"{checkins}", strconv.Itoa(res.NumCheckins),
+		"{srv}", ip,
+	)
+
+	return replacer.Replace(format)
 }
