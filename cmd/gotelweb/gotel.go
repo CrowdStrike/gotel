@@ -41,5 +41,5 @@ func main() {
 		}
 	}()
 
-	gotel.InitAPI(ge, 8080, *htmlPath)
+	ge.InitAPI(8080, *htmlPath)
 }

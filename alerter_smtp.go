@@ -56,7 +56,7 @@ func (s *smtpAlerter) Alert(res reservation) bool {
 		emailAddy := strings.TrimSpace(emailAddyRaw)
 		now := time.Now().Format(time.RFC822) // in case email delivery delay, let them know the actual date
 		subject := "Job Failed to checkin"
-		body := fmt.Sprintf("app [%s] component [%s] failed checkin on IP [%s]. Contact owner [%s]. Alert time is [%s]\n\nNotification list [%s]", res.App, res.Component, ip, res.Owner, now, res.Notify)
+		body := fmt.Sprintf("%s\n\nAlert time is [%s]\n\nNotification list [%s]", res.AlertMessage, now, res.Notify)
 		message := bytes.NewBufferString(fmt.Sprintf("Subject: %s\r\nFrom: %s\r\nReply-to: %s\r\nTo: %s\r\n\r\n%s", subject, s.Cfg.Smtp.Fromaddress, s.Cfg.Smtp.ReplyTO, emailAddy, body))
 
 		// Now push out the complete mail message

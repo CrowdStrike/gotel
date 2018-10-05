@@ -78,7 +78,7 @@ func (ge *Endpoint) makeReservation(w http.ResponseWriter, req *http.Request) {
 }
 
 func (ge *Endpoint) getReservations() ([]reservation, error) {
-	query := "SELECT id, app, component, owner, notify, frequency, time_units, last_checkin_timestamp, num_checkins FROM reservations ORDER BY last_checkin_timestamp DESC"
+	query := "SELECT id, app, component, owner, notify, alert_msg, frequency, time_units, last_checkin_timestamp, num_checkins FROM reservations ORDER BY last_checkin_timestamp DESC"
 	rows, err := ge.Db.Query(query)
 	if err != nil {
 		return nil, err
@@ -140,7 +140,7 @@ func (ge *Endpoint) getNodes() ([]node, error) {
 }
 
 func (ge *Endpoint) getBadGuests() ([]badGuest, error) {
-	query := "select  app, component, count(*) as cnt from alerts group by app, component ORDER by cnt DESC ;"
+	query := "SELECT app, component, count(*) AS cnt FROM alerts GROUP BY app, component ORDER by cnt DESC"
 	rows, err := ge.Db.Query(query)
 	if err != nil {
 		return nil, err
@@ -280,7 +280,7 @@ func validateReservation(res *reservation) error {
 }
 
 // InitAPI initializes the webservice on the specific port
-func InitAPI(ge *Endpoint, port int, htmlPath string) {
+func (ge *Endpoint) InitAPI(port int, htmlPath string) {
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "GET" {
 			r := Response{"success": true, "message": "A-OK!"}

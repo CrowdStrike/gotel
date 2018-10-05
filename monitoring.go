@@ -90,20 +90,20 @@ func hasLock(db *sql.DB) bool {
 	query := "SELECT GET_LOCK('gotel_lock', 3) as lck"
 	rows, err := db.Query(query)
 	if err != nil {
-		l.warn("Unable to aquire lock\n")
+		l.warn("Unable to acquire lock\n")
 	}
 	defer rows.Close()
 	for rows.Next() {
 		err := rows.Scan(&lck)
 		if err != nil {
-			l.warn("Unable to aquire locking rows\n")
+			l.warn("Unable to acquire locking rows\n")
 		}
 		if lck == 1 {
 			// holds a lock while the connection is alive
-			l.info("Lock Aquired")
+			l.info("Lock Acquired")
 			return true
 		}
-		l.info("Unable to aquire coordinator lock. I must be a worker [%v]", lck)
+		l.info("Unable to acquire coordinator lock. I must be a worker [%v]", lck)
 
 	}
 	return false
@@ -121,7 +121,7 @@ func releaseLock(db *sql.DB) (bool, error) {
 
 }
 
-// attempt to aquire coordinator lock to indicate this node should do the job checking
+// attempt to acquire coordinator lock to indicate this node should do the job checking
 // in the future I'd like to have a zookeeper integration for a more "true" leader election scheme
 // this is somewhat of a quickstart method so people don't have to also have ZK in their env
 // split brain would be detected by the coordinator not checking in so we'd be firing off an alert
@@ -129,13 +129,13 @@ func isCoordinator(db *sql.DB) bool {
 
 	coordinatorNodeCnt := 0
 
-	lockAquired := hasLock(db)
-	if lockAquired {
+	lockAcquired := hasLock(db)
+	if lockAcquired {
 		var (
 			ipAddress string
 			nodeID    int64
 		)
-		rows, err := db.Query("select ip_address, node_id from nodes")
+		rows, err := db.Query("SELECT ip_address, node_id FROM nodes")
 		if err != nil {
 			l.err("Unable to select nodes [%v]", err)
 			return false
@@ -214,7 +214,7 @@ func insertSelf(db *sql.DB) {
 	rand.Seed(time.Now().UnixNano())
 	seedID := rand.Intn(10000)
 
-	stmt, err := db.Prepare("insert into nodes(ip_address, node_id) values(?, ?)")
+	stmt, err := db.Prepare("INSERT INTO nodes(ip_address, node_id) VALUES (?, ?)")
 	if err != nil {
 		l.err("Unable to prepare insertself record %s", err)
 		return
@@ -246,10 +246,10 @@ func jobChecker(db *sql.DB) {
 
 	var query string
 	if coordinator {
-		query = "select id, app, component, owner, notify, frequency, time_units, last_checkin_timestamp from reservations"
+		query = "SELECT id, app, component, owner, notify, alert_msg, frequency, time_units, last_checkin_timestamp FROM reservations"
 	} else {
 		// if we're a worker we just want to monitor the co-ordinator
-		query = "select id, app, component, owner, notify, frequency, time_units, last_checkin_timestamp from reservations where app='gotel' and component='coordinator'"
+		query = "SELECT id, app, component, owner, notify, alert_msg, frequency, time_units, last_checkin_timestamp FROM reservations WHERE app='gotel' AND component='coordinator'"
 	}
 	rows, err := db.Query(query)
 	defer rows.Close()
@@ -259,10 +259,16 @@ func jobChecker(db *sql.DB) {
 	}
 
 	for rows.Next() {
+		var alertMessage sql.NullString
 		res := reservation{}
-		rows.Scan(&res.JobID, &res.App, &res.Component, &res.Owner, &res.Notify, &res.Frequency, &res.TimeUnits, &res.LastCheckin)
+		rows.Scan(&res.JobID, &res.App, &res.Component, &res.Owner, &res.Notify, &alertMessage, &res.Frequency,
+			&res.TimeUnits, &res.LastCheckin)
 
 		if FailsSLA(res) {
+			if (!alertMessage.Valid) || (alertMessage.String == "") {
+				alertMessage.String = "App: [{app}] Component: [{component}] failed checkin on IP [{srv}]. Contact owner [{owner}]"
+			}
+			res.AlertMessage = res.formatAlert(alertMessage.String)
 			for _, alerter := range alertFuncs {
 				if !alreadySentRecently(res, alerter.Name()) {
 					if alerter.Alert(res) {
@@ -324,7 +330,7 @@ func FailsSLA(res reservation) bool {
 func storeAlert(res reservation, db *sql.DB, alerters []string) {
 	now := time.Now().UTC().Unix()
 	altertNames := strings.Join(alerters, ",")
-	stmt, err := db.Prepare("insert into alerts(app, component, alert_time, alerters) values(?, ?, ?, ?)")
+	stmt, err := db.Prepare("INSERT INTO alerts(app, component, alert_time, alerters) VALUES (?, ?, ?, ?)")
 	if err != nil {
 		l.info("[ERROR] Unable to prepare storealert record %s", err)
 		return
