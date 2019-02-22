@@ -1,6 +1,7 @@
 package gotel
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -86,8 +87,10 @@ func (ge *Endpoint) getReservations() ([]reservation, error) {
 	reservations := []reservation{}
 	defer rows.Close()
 	for rows.Next() {
+		var alertMessage sql.NullString
 		res := reservation{}
-		rows.Scan(&res.JobID, &res.App, &res.Component, &res.Owner, &res.Notify, &res.Frequency, &res.TimeUnits, &res.LastCheckin, &res.NumCheckins)
+		rows.Scan(&res.JobID, &res.App, &res.Component, &res.Owner, &res.Notify, &alertMessage, &res.Frequency,
+			&res.TimeUnits, &res.LastCheckin, &res.NumCheckins)
 		lastCheckin := time.Unix(res.LastCheckin, 0)
 		res.TimeSinceLastCheckin = RelTime(lastCheckin, time.Now(), "ago", "")
 		res.LastCheckinStr = lastCheckin.Format(time.RFC1123)
@@ -95,6 +98,9 @@ func (ge *Endpoint) getReservations() ([]reservation, error) {
 			res.FailingSLA = true
 		} else {
 			res.FailingSLA = false
+		}
+		if (!alertMessage.Valid) || (alertMessage.String == "") {
+			res.AlertMessage = alertMessage.String
 		}
 		reservations = append(reservations, res)
 	}

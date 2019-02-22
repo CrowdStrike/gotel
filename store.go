@@ -58,7 +58,7 @@ func InitDb(host, user, pass string, conf config) *sql.DB {
 	}
 	err = db.Ping()
 	if err != nil {
-		panic(fmt.Sprintf("Unable to ping the DB at host [%s] user [%s]", host, user))
+		panic(fmt.Sprintf("Unable to ping the DB at host [%s] user [%s]: %v", host, user, err))
 	}
 	bootstrapDb(db, conf)
 	return db
