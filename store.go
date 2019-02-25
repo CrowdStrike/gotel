@@ -24,7 +24,7 @@ type reservation struct {
 	TimeUnits            string `json:"time_units"`
 	LastCheckin          int64  `json:"last_checkin"`
 	LastCheckinStr       string `json:"last_checkin_str"` // human readable time
-	TimeSinceLastCheckin string `json:"time_sine_last_checkin"`
+	TimeSinceLastCheckin string `json:"time_since_last_checkin"`
 	FailingSLA           bool   `json:"failing_sla"`
 	NumCheckins          int    `json:"number_of_checkins"`
 }
