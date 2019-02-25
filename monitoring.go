@@ -24,7 +24,7 @@ var (
 	coordinator = false
 	// stores a slice of alerter functions to call when we have an alert
 	alertFuncs = []alerter{}
-	cfg        config
+	cfg Config
 	// our current IP address
 	myIP string
 )
@@ -48,16 +48,16 @@ func Monitor(db *sql.DB) {
 }
 
 // InitializeMonitoring sets up alerters based on configuration
-func InitializeMonitoring(c config, db *sql.DB) {
+func InitializeMonitoring(c Config, db *sql.DB) {
 	cfg = c
-	if cfg.Smtp.Enabled {
+	if cfg.SMTP.Enabled {
 		smtp := new(smtpAlerter)
 		smtp.Cfg = c
 		alertFuncs = append(alertFuncs, smtp)
 	} else {
 		l.info("SMTP Alerting disabled")
 	}
-	if cfg.Pagerduty.Enabled {
+	if cfg.PagerDuty.Enabled {
 		pd := new(pagerDutyAlerter)
 		pd.Cfg = c
 		alertFuncs = append(alertFuncs, pd)
@@ -177,7 +177,10 @@ func isCoordinator(db *sql.DB) bool {
 
 		}
 		insertSelf(db)
-		releaseLock(db)
+		_, err = releaseLock(db)
+		if err != nil {
+			l.err("Unable to release lock [%v]", err)
+		}
 		if coordinatorNodeCnt == 0 {
 			// I'm the coordinator!
 			return true
@@ -261,8 +264,12 @@ func jobChecker(db *sql.DB) {
 	for rows.Next() {
 		var alertMessage sql.NullString
 		res := reservation{}
-		rows.Scan(&res.JobID, &res.App, &res.Component, &res.Owner, &res.Notify, &alertMessage, &res.Frequency,
+		err = rows.Scan(&res.JobID, &res.App, &res.Component, &res.Owner, &res.Notify, &alertMessage, &res.Frequency,
 			&res.TimeUnits, &res.LastCheckin)
+		if err != nil {
+			l.err("Unable to scan rows [%v]", err)
+			return
+		}
 
 		if FailsSLA(res) {
 			if (!alertMessage.Valid) || (alertMessage.String == "") {
@@ -350,10 +357,13 @@ func storeJobRun(db *sql.DB) {
 	}
 	now := time.Now().UTC().Unix()
 	l.info("Storing job run, mode: [%s]\n", mode)
-	storeCheckin(db, checkin{
+	_, err := storeCheckin(db, checkin{
 		App:       "gotel",
 		Component: mode,
 	}, now)
+	if err != nil {
+		l.err("Could not store job run [%v]", err)
+	}
 }
 
 // Cleanup should run on a scheduled ticker to allow GoTel to clean up after itself to prevent disk space issues in the

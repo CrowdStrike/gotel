@@ -1,6 +1,7 @@
 package gotel
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,9 +22,9 @@ type badGuest struct {
 }
 
 type node struct {
-	Id            int
-	IpAddress     string
-	NodeId        int
+	ID            int
+	IPAddress     string
+	NodeID        int
 	IsCoordinator bool
 }
 
@@ -33,20 +34,28 @@ func writeError(w http.ResponseWriter, e interface{}) {
 	w.WriteHeader(http.StatusBadRequest)
 	w.Header().Set("Content-Type", "application/json")
 	if bytes, err := json.Marshal(e); err != nil {
-		w.Write([]byte("Could not encode error"))
-		return
+		_, err = w.Write([]byte("Could not encode error"))
+		if err != nil {
+			l.err("Could not encode error [%v]", err)
+		}
 	} else {
-		w.Write(bytes)
-		return
+		_, err = w.Write(bytes)
+		if err != nil {
+			l.err("Could not write error [%v]", err)
+		}
 	}
 }
 
 func writeResponse(w http.ResponseWriter, e interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	if bytes, err := json.Marshal(e); err != nil {
-		w.Write([]byte("Could not encode response"))
+		l.err("Could not encode response [%v]", err)
+		writeError(w, "Could not encode response")
 	} else {
-		w.Write(bytes)
+		_, err = w.Write(bytes)
+		if err != nil {
+			l.err("Could not write response [%v]", err)
+		}
 		return
 	}
 }
@@ -61,12 +70,12 @@ func (ge *Endpoint) makeReservation(w http.ResponseWriter, req *http.Request) {
 
 	err = validateReservation(res)
 	if err != nil {
-		l.warn("Invalid reservations [%q]", res)
+		l.warn("Invalid reservations [%v]", res)
 		writeError(w, fmt.Sprintf("Unable to store reservation, validation failure [%v]", err))
 		return
 	}
 
-	l.info("%q", res)
+	l.info("%v", res)
 
 	_, err = storeReservation(ge.Db, res)
 	if err != nil {
@@ -86,8 +95,13 @@ func (ge *Endpoint) getReservations() ([]reservation, error) {
 	reservations := []reservation{}
 	defer rows.Close()
 	for rows.Next() {
+		var alertMessage sql.NullString
 		res := reservation{}
-		rows.Scan(&res.JobID, &res.App, &res.Component, &res.Owner, &res.Notify, &res.Frequency, &res.TimeUnits, &res.LastCheckin, &res.NumCheckins)
+		err = rows.Scan(&res.JobID, &res.App, &res.Component, &res.Owner, &res.Notify, &alertMessage, &res.Frequency,
+			&res.TimeUnits, &res.LastCheckin, &res.NumCheckins)
+		if err != nil {
+			return nil, err
+		}
 		lastCheckin := time.Unix(res.LastCheckin, 0)
 		res.TimeSinceLastCheckin = RelTime(lastCheckin, time.Now(), "ago", "")
 		res.LastCheckinStr = lastCheckin.Format(time.RFC1123)
@@ -95,6 +109,9 @@ func (ge *Endpoint) getReservations() ([]reservation, error) {
 			res.FailingSLA = true
 		} else {
 			res.FailingSLA = false
+		}
+		if (!alertMessage.Valid) || (alertMessage.String == "") {
+			res.AlertMessage = alertMessage.String
 		}
 		reservations = append(reservations, res)
 	}
@@ -112,17 +129,20 @@ func (ge *Endpoint) getNodes() ([]node, error) {
 	defer rows.Close()
 	for rows.Next() {
 		res := node{IsCoordinator: false}
-		rows.Scan(&res.Id, &res.IpAddress, &res.NodeId)
-
-		resp, err := http.Get(fmt.Sprintf("http://%s:8080/is-coordinator", res.IpAddress))
+		err = rows.Scan(&res.ID, &res.IPAddress, &res.NodeID)
 		if err != nil {
-			l.warn("Unable to contact node [%s] assuming offline", res.IpAddress)
+			return nil, err
+		}
+
+		resp, err := http.Get(fmt.Sprintf("http://%s:8080/is-coordinator", res.IPAddress))
+		if err != nil {
+			l.warn("Unable to contact node [%s] assuming offline", res.IPAddress)
 			continue
 		}
 		defer resp.Body.Close()
 
 		if resp.StatusCode != 200 {
-			l.warn("Didn't get a 200OK reply back from ip [%s]", res.IpAddress)
+			l.warn("Didn't get a 200OK reply back from ip [%s]", res.IPAddress)
 			continue
 		}
 
@@ -149,7 +169,10 @@ func (ge *Endpoint) getBadGuests() ([]badGuest, error) {
 	defer rows.Close()
 	for rows.Next() {
 		res := badGuest{}
-		rows.Scan(&res.App, &res.Component, &res.NumFails)
+		err = rows.Scan(&res.App, &res.Component, &res.NumFails)
+		if err != nil {
+			return nil, err
+		}
 		guests = append(guests, res)
 	}
 	return guests, nil
@@ -301,7 +324,10 @@ func (ge *Endpoint) InitAPI(port int, htmlPath string) {
 				if err != nil {
 					l.err(err.Error())
 				} else {
-					t.Execute(w, &reservations)
+					err = t.Execute(w, &reservations)
+					if err != nil {
+						l.err(err.Error())
+					}
 				}
 
 			}
@@ -322,7 +348,10 @@ func (ge *Endpoint) InitAPI(port int, htmlPath string) {
 				if err != nil {
 					l.err(err.Error())
 				} else {
-					t.Execute(w, &reservations)
+					err = t.Execute(w, &reservations)
+					if err != nil {
+						l.err(err.Error())
+					}
 				}
 			}
 		}
@@ -341,7 +370,10 @@ func (ge *Endpoint) InitAPI(port int, htmlPath string) {
 				if err != nil {
 					l.err(err.Error())
 				} else {
-					t.Execute(w, &reservations)
+					err = t.Execute(w, &reservations)
+					if err != nil {
+						l.err(err.Error())
+					}
 				}
 			}
 		}

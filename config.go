@@ -6,27 +6,28 @@ import (
 
 var l *logging
 
-type config struct {
+// Config is the service configuration
+type Config struct {
 	Main struct {
 		GotelOwnerEmail    string
 		HoursBetweenAlerts int64
 		DaysToStoreLogs    int
 	}
-	Smtp struct {
+	SMTP struct {
 		Enabled     bool
-		Fromaddress string
+		FromAddress string
 		ReplyTO     string
 	}
-	Pagerduty struct {
+	PagerDuty struct {
 		Enabled    bool
-		Servicekey string
+		ServiceKey string
 	}
 }
 
 // NewConfig returns a gotel config with configPath and sysLogEnabled set.
 // As part of initialization it will also parse the provided config file.
-func NewConfig(confPath string, sysLogEnabled bool) config {
-	conf := config{}
+func NewConfig(confPath string, sysLogEnabled bool) Config {
+	conf := Config{}
 	l = &logging{EnableSYSLOG: sysLogEnabled}
 	l.setLogOutput()
 
