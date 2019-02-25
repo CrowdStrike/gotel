@@ -51,7 +51,7 @@ type snooze struct {
 }
 
 // InitDb initializes and then bootstraps the database
-func InitDb(host, user, pass string, conf config) *sql.DB {
+func InitDb(host, user, pass string, conf Config) *sql.DB {
 	db, err := sql.Open("mysql", fmt.Sprintf("%s:%s@tcp(%s:3306)/gotel", user, pass, host))
 	if err != nil {
 		panic(err)
@@ -72,7 +72,7 @@ func storeReservation(db *sql.DB, r *reservation) (bool, error) {
 
 	seconds := getSecondsFromUnits(r.Frequency, r.TimeUnits)
 	if seconds < 10 {
-		return false, errors.New("Unable to store reservations for less than 10 seconds at this time, for no real reason.")
+		return false, errors.New("unable to store reservations for less than 10 seconds at this time, for no real reason")
 	}
 
 	stmt, err := db.Prepare(`INSERT INTO reservations(app, component, owner, notify, alert_msg, frequency, time_units, inserted_timestamp, last_checkin_timestamp)
@@ -189,7 +189,7 @@ func getSecondsFromUnits(freq int, units string) int {
 	return seconds
 }
 
-func bootstrapDb(db *sql.DB, conf config) {
+func bootstrapDb(db *sql.DB, conf Config) {
 
 	l.info("Bootstrapping GoTel DB tables")
 	versions := getTablesVersions(db)
@@ -304,7 +304,11 @@ func bootstrapDb(db *sql.DB, conf config) {
 		l.info("Inserted gotel/worker as first app to monitor")
 	}
 
-	tx.Commit()
+	err = tx.Commit()
+	if err != nil {
+		l.err("Could not commit transaction [%v]", err)
+		panic(err)
+	}
 	l.info("DB ready")
 }
 
@@ -329,7 +333,10 @@ func getTablesVersions(db *sql.DB) map[string]int {
 		}
 		versions[tbl] = 0
 	}
-	rows.Close()
+	err = rows.Close()
+	if err != nil {
+		l.err("Unable to close query [%v]", err)
+	}
 
 	if _, hasKey := versions["tables_versions"]; hasKey {
 		rows, err = db.Query(`SELECT table_name, table_version FROM tables_versions`)
@@ -346,7 +353,10 @@ func getTablesVersions(db *sql.DB) map[string]int {
 			}
 			versions[tbl] = ver
 		}
-		rows.Close()
+		err = rows.Close()
+		if err != nil {
+			l.err("Unable to close query [%v]", err)
+		}
 	}
 
 	return versions
@@ -358,7 +368,10 @@ func setTableVersion(tx *sql.Tx, tbl string, ver int) {
 	_, err := tx.Exec(tableVersion, tbl, ver, ver)
 	if err != nil {
 		l.err("Could not set table version [%v]", err)
-		tx.Rollback()
+		err = tx.Rollback()
+		if err != nil {
+			l.err("Could not roll back transaction [%v]", err)
+		}
 		panic(err)
 	} else {
 		l.info("Updated %s to version %d", tbl, ver)
@@ -370,7 +383,10 @@ func doTxQuery(tx *sql.Tx, query string) sql.Result {
 
 	if err != nil {
 		l.err("Could not execute query [%v]", err)
-		tx.Rollback()
+		err = tx.Rollback()
+		if err != nil {
+			l.err("Could not roll back transaction [%v]", err)
+		}
 		panic(err)
 	}
 

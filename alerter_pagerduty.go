@@ -14,12 +14,12 @@ func init() {
 }
 
 type pagerDutyAlerter struct {
-	Cfg config
+	Cfg Config
 }
 
 func (s *pagerDutyAlerter) Bootstrap() {
 	if pdServiceKey != "" {
-		s.Cfg.Pagerduty.Servicekey = pdServiceKey
+		s.Cfg.PagerDuty.ServiceKey = pdServiceKey
 	}
 }
 
@@ -29,16 +29,16 @@ func (s *pagerDutyAlerter) Name() string {
 
 func (s *pagerDutyAlerter) Alert(res reservation) bool {
 
-	l.info("PagerDuty API key [%s]", s.Cfg.Pagerduty.Servicekey)
+	l.info("PagerDuty API key [%s]", s.Cfg.PagerDuty.ServiceKey)
 
-	pager.ServiceKey = s.Cfg.Pagerduty.Servicekey
+	pager.ServiceKey = s.Cfg.PagerDuty.ServiceKey
 	incidentKey, err := pager.Trigger(res.AlertMessage)
 
 	if err != nil {
-		l.err("[ERROR] Unable to create pagerduty alert for job [%s] component [%s] error [%v]\n", res.App, res.Component, err)
+		l.err("[ERROR] Unable to create PagerDuty alert for job [%s] component [%s] error [%v]\n", res.App,
+			res.Component, err)
 		return false
-	} else {
-		l.info("PagerDuty incident key created %s\n", incidentKey)
-		return true
 	}
+	l.info("PagerDuty incident key created %s\n", incidentKey)
+	return true
 }

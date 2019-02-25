@@ -12,12 +12,19 @@ import (
 )
 
 const (
+	// Minute is the nubmer of seconds in a minute
 	Minute   = 60
+	// Hour is the nubmer of seconds in an hour
 	Hour     = 60 * Minute
+	// Day is the nubmer of seconds in a day
 	Day      = 24 * Hour
+	// Week is the nubmer of seconds in a week
 	Week     = 7 * Day
+	// Month is the nubmer of seconds in a 30 day month
 	Month    = 30 * Day
+	// Year is the nubmer of seconds in almost a year
 	Year     = 12 * Month
+	// LongTime is the nubmer of seconds in a while
 	LongTime = 37 * Year
 )
 
@@ -83,6 +90,7 @@ func externalIP() (string, error) {
 	return "", errors.New("are you connected to the network?")
 }
 
+// RelTime returns the duration between to times, formatted as a string
 func RelTime(a, b time.Time, albl, blbl string) string {
 	lbl := albl
 	diff := b.Unix() - a.Unix()

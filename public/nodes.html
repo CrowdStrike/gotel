@@ -17,16 +17,16 @@
           <table class="table table-bordered table-condensed">
             <thead>
             <tr>
-                  <th>NodeID</th>
-                  <th>IpAddress</th>
+                  <th>Node ID</th>
+                  <th>IP Address</th>
                   <th>Coordinator Node</th>
             </tr>
               </thead>
               <tbody>
             {{range .}}
               <tr>
-                <td>{{.NodeId}}</td>
-                <td>{{.IpAddress}}</td>
+                <td>{{.NodeID}}</td>
+                <td>{{.IPAddress}}</td>
                 {{ if .IsCoordinator }}
                 <td class="success">YES</td>
                 {{ else }}

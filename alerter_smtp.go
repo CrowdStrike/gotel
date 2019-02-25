@@ -31,7 +31,7 @@ func (s *smtpAlerter) Bootstrap() {
 }
 
 type smtpAlerter struct {
-	Cfg config
+	Cfg Config
 }
 
 func (s *smtpAlerter) Name() string {
@@ -57,11 +57,12 @@ func (s *smtpAlerter) Alert(res reservation) bool {
 		now := time.Now().Format(time.RFC822) // in case email delivery delay, let them know the actual date
 		subject := "Job Failed to checkin"
 		body := fmt.Sprintf("%s\n\nAlert time is [%s]\n\nNotification list [%s]", res.AlertMessage, now, res.Notify)
-		message := bytes.NewBufferString(fmt.Sprintf("Subject: %s\r\nFrom: %s\r\nReply-to: %s\r\nTo: %s\r\n\r\n%s", subject, s.Cfg.Smtp.Fromaddress, s.Cfg.Smtp.ReplyTO, emailAddy, body))
+		message := bytes.NewBufferString(fmt.Sprintf("Subject: %s\r\nFrom: %s\r\nReply-to: %s\r\nTo: %s\r\n\r\n%s",
+			subject, s.Cfg.SMTP.FromAddress, s.Cfg.SMTP.ReplyTO, emailAddy, body))
 
 		// Now push out the complete mail message
 		auth := smtp.PlainAuth("", smtpUser, smtpPass, smtpHost)
-		if err = smtp.SendMail(smtpPair, auth, s.Cfg.Smtp.Fromaddress, []string{emailAddy}, message.Bytes()); err != nil {
+		if err = smtp.SendMail(smtpPair, auth, s.Cfg.SMTP.FromAddress, []string{emailAddy}, message.Bytes()); err != nil {
 			l.warn("[WARN] Unable to write to mail server: host: [%s] user: [%s] err: [%v]\n", smtpHost, smtpUser, err)
 			return false
 		}
